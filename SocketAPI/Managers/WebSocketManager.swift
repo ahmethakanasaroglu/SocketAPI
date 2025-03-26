@@ -11,7 +11,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
 
     override init() {
         super.init()
-        var request = URLRequest(url: URL(string: "wss://socketsbay.com/wss/v2/1/demo/")!)
+        var request = URLRequest(url: URL(string: "wss://free.blr2.piesocket.com/v3/12345?api_key=Prb34C9fTmugVUUMU30dCZNCfjS4019gFpzWEXJ8")!)
         socket = WebSocket(request: request)
         socket?.delegate = self
     }
