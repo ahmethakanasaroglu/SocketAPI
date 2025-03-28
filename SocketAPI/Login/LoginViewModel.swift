@@ -12,7 +12,18 @@ class LoginViewModel {
                 self.onError?(error.localizedDescription)
             } else {
                 self.onLoginSuccess?()
+                self.redirectToMainTabBar()
             }
+        }
+    }
+   
+    private func redirectToMainTabBar() {
+        let mainTBC = MainTabBarController()
+        let navController = UINavigationController(rootViewController: mainTBC)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController = navController
+            window.makeKeyAndVisible()
         }
     }
     
