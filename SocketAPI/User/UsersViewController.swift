@@ -10,6 +10,11 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTableView()
+        
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
         fetchUsers { fetchedUsers in
             self.users = fetchedUsers
             DispatchQueue.main.async {
