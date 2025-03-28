@@ -5,9 +5,12 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     private let tableView = UITableView()
     private let messageInputField = UITextField()
     private let sendButton = UIButton()
+    var selectedUser: User? // Kullanıcı buraya atanacak
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        title = selectedUser?.name
+                // Seçilen kullanıcının ID’sine göre mesajları alacağız.
         setupUI()
         setupGestures()
         viewModel.onMessageReceived = { [weak self] in
@@ -26,6 +29,11 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         NotificationCenter.default.removeObserver(self)
     }
 
+    func loadMessages() {
+        guard let userID = selectedUser?.uid else { return }
+            // Firestore’dan bu kullanıcıyla olan mesajları çek
+        }
+    
     private func setupUI() {
         view.backgroundColor = .white
 
