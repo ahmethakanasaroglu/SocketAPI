@@ -5,11 +5,26 @@ import FirebaseFirestore
 class LoginViewController: UIViewController {
     let viewModel = LoginViewModel()
     
+    // Başlık Label'ı
+    let titleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Hoş Geldiniz" // Başlık
+        label.font = UIFont.boldSystemFont(ofSize: 24)
+        label.textAlignment = .center
+        label.textColor = UIColor.systemBlue
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     let emailTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "Email"
         textField.borderStyle = .roundedRect
+        textField.layer.cornerRadius = 10
+        textField.layer.borderWidth = 1
+        textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .none
+        textField.paddingLeft(10)
         return textField
     }()
     
@@ -17,22 +32,33 @@ class LoginViewController: UIViewController {
         let textField = UITextField()
         textField.placeholder = "Şifre"
         textField.borderStyle = .roundedRect
+        textField.layer.cornerRadius = 10
+        textField.layer.borderWidth = 1
+        textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .none
         textField.isSecureTextEntry = true
+        textField.paddingLeft(10)
         return textField
     }()
     
     let nameTextField: UITextField = {
         let textField = UITextField()
-        textField.placeholder = "Name"
+        textField.placeholder = "Adınız"
         textField.borderStyle = .roundedRect
+        textField.layer.cornerRadius = 10
+        textField.layer.borderWidth = 1
+        textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .none
+        textField.paddingLeft(10)
         return textField
     }()
     
     let loginButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Giriş Yap", for: .normal)
+        button.layer.cornerRadius = 10
+        button.backgroundColor = UIColor.systemBlue
+        button.setTitleColor(.white, for: .normal)
         button.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
         return button
     }()
@@ -40,13 +66,17 @@ class LoginViewController: UIViewController {
     let registerButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Kayıt Ol", for: .normal)
+        button.layer.cornerRadius = 10
+        button.layer.borderWidth = 1
+        button.layer.borderColor = UIColor.systemBlue.cgColor
+        button.setTitleColor(.systemBlue, for: .normal)
         button.addTarget(self, action: #selector(registerTapped), for: .touchUpInside)
         return button
     }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        view.backgroundColor = UIColor.systemBackground
         setupUI()
         bindViewModel()
     }
@@ -54,14 +84,18 @@ class LoginViewController: UIViewController {
     func setupUI() {
         let stackView = UIStackView(arrangedSubviews: [nameTextField, emailTextField, passwordTextField, loginButton, registerButton])
         stackView.axis = .vertical
-        stackView.spacing = 10
+        stackView.spacing = 20
         stackView.translatesAutoresizingMaskIntoConstraints = false
         
+        view.addSubview(titleLabel) // Başlık Label'ı ekliyoruz
         view.addSubview(stackView)
         NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 50),
+            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
             stackView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stackView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            stackView.widthAnchor.constraint(equalToConstant: 250)
+            stackView.widthAnchor.constraint(equalToConstant: 300)
         ])
     }
     
@@ -96,14 +130,14 @@ class LoginViewController: UIViewController {
         }
         viewModel.register(name:name, email: email, password: password) { success in
             if success {
-                    print("✅ Kayıt başarılı! Kullanıcı Firestore'a kaydedildi.")
-                    DispatchQueue.main.async {
-                        let usersVC = UsersViewController()
-                        self.navigationController?.pushViewController(usersVC, animated: true)
-                    }
-                } else {
-                    print("❌ Kayıt başarısız! Lütfen tekrar deneyin.")
+                print("✅ Kayıt başarılı! Kullanıcı Firestore'a kaydedildi.")
+                DispatchQueue.main.async {
+                    let usersVC = UsersViewController()
+                    self.navigationController?.pushViewController(usersVC, animated: true)
                 }
+            } else {
+                print("❌ Kayıt başarısız! Lütfen tekrar deneyin.")
+            }
         }
     }
     
@@ -112,35 +146,12 @@ class LoginViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Tamam", style: .default))
         present(alert, animated: true)
     }
-    
-    func registerUser(name: String, email: String, password: String, completion: @escaping (Bool) -> Void) {
-        Auth.auth().createUser(withEmail: email, password: password) { result, error in
-            if let error = error {
-                print("Kayıt hatası: \(error.localizedDescription)")
-                completion(false)
-                return
-            }
-            
-            guard let uid = result?.user.uid else {
-                print("UID bulunamadı!")
-                completion(false)
-                return
-            }
-            
-            let db = Firestore.firestore()
-            let userData: [String: Any] = ["name": name, "email": email, "uid": uid]
-            
-            db.collection("users").document(uid).setData(userData) { error in
-                if let error = error {
-                    print("Firestore'a kaydedilemedi: \(error.localizedDescription)")
-                    completion(false)
-                } else {
-                    print("🔥 Kullanıcı Firestore'a başarıyla kaydedildi! UID: \(uid)")
-                    completion(true)
-                }
-            }
-        }
+}
+
+extension UITextField {
+    func paddingLeft(_ padding: CGFloat) {
+        let paddingView = UIView(frame: CGRect(x: 0, y: 0, width: padding, height: self.frame.height))
+        self.leftView = paddingView
+        self.leftViewMode = .always
     }
-
-
 }
