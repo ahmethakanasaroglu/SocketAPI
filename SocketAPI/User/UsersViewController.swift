@@ -80,7 +80,8 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
            let window = windowScene.windows.first {
             window.rootViewController = UINavigationController(rootViewController: chatVC)
             window.makeKeyAndVisible()
-        }    }
+        }
+    }
 }
 
 // Kullanıcı modeli

@@ -18,6 +18,14 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
                 self?.tableView.reloadData()
             }
         }
+        
+        // Eğer otomatik bir geri butonu istiyorsanız:
+                self.navigationItem.leftBarButtonItem = UIBarButtonItem(
+                    title: "Geri",
+                    style: .plain,
+                    target: self,
+                    action: #selector(goBack)
+                )
 
         // Klavye bildirimlerini dinle
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
@@ -29,6 +37,16 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         NotificationCenter.default.removeObserver(self)
     }
 
+    @objc func goBack() {
+        let usersVC = UsersViewController()
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController = UINavigationController(rootViewController: usersVC)
+            window.makeKeyAndVisible()
+        }
+    }
+   
+        
     func loadMessages() {
         guard let userID = selectedUser?.uid else { return }
             // Firestore’dan bu kullanıcıyla olan mesajları çek
