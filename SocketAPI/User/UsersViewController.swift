@@ -76,8 +76,11 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     func openChat(with user: User) {
         let chatVC = ChatViewController()
         chatVC.selectedUser = user
-        navigationController?.pushViewController(chatVC, animated: true)
-    }
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController = UINavigationController(rootViewController: chatVC)
+            window.makeKeyAndVisible()
+        }    }
 }
 
 // Kullanıcı modeli
