@@ -38,7 +38,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     }
 
     @objc func goBack() {
-        let usersVC = UsersViewController()
+        let usersVC = MainTabBarController()
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
             window.rootViewController = UINavigationController(rootViewController: usersVC)
