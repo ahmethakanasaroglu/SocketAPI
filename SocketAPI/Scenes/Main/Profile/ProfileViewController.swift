@@ -4,6 +4,8 @@ import FirebaseFirestore
 
 class ProfileViewController: UIViewController {
     
+    private let themeSwitchButton = ThemeSwitchButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+    
     private let profileImageView: UIImageView = {
         let view = UIImageView()
         view.layer.cornerRadius = 30
@@ -68,11 +70,17 @@ class ProfileViewController: UIViewController {
         view.backgroundColor = .systemBackground
         setupUI()
         fetchUserData()
+        setupRightBarButton()
+    }
+    
+    private func setupRightBarButton() {
+        let rightBarButton = UIBarButtonItem(customView: themeSwitchButton)
+        navigationItem.rightBarButtonItem = rightBarButton
     }
     
     private func setupUI() {
         navigationItem.title = "Profil"
-
+        
         view.addSubview(profileContainerView)
         profileContainerView.addSubview(nameLabel)
         profileContainerView.addSubview(emailLabel)

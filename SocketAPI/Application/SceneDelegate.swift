@@ -20,8 +20,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.windowScene = windowScene
         window?.rootViewController = LoginViewController()
         window?.makeKeyAndVisible()
+        applySavedTheme()
     }
-
+    
+    private func applySavedTheme() {
+        let isDark = UserDefaults.standard.bool(forKey: "selectedTheme")
+        window?.overrideUserInterfaceStyle = isDark ? .dark : .light
+    }
 
 }
 
