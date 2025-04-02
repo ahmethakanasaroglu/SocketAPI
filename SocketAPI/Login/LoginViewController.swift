@@ -123,8 +123,27 @@ class LoginViewController: UIViewController {
             hataMesaji(titleInput: "Hata!", messageInput: "İsim, Email ve Şifre Giriniz")
             return
         }
+        
+        // Burada viewModel.login fonksiyonunu çağırıyoruz.
+        // Eğer viewModel'deki login fonksiyonu closure kabul ediyorsa, burayı aşağıdaki şekilde kullanabiliriz:
         viewModel.login(email: email, password: password)
+        
+        // onLoginSuccess callback'ini dinliyoruz:
+        viewModel.onLoginSuccess = {
+            DispatchQueue.main.async {
+                // Login başarılı olursa, Splash ekranına yönlendiriyoruz
+                let splashVC = SplashScreenViewController()
+                let navController = UINavigationController(rootViewController: splashVC)
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first {
+                    window.rootViewController = navController
+                    window.makeKeyAndVisible()
+                }
+            }
+        }
     }
+
+
     
     @objc func registerTapped() {
         guard let name = nameTextField.text,
@@ -143,7 +162,7 @@ class LoginViewController: UIViewController {
                                                   preferredStyle: .alert)
                     alert.addAction(UIAlertAction(title: "Tamam", style: .default) { _ in
                         // Kullanıcı başarılı kayıt olduktan sonra UsersViewController'a yönlendir
-                        let usersVC = MainTabBarController()
+                        let usersVC = SplashScreenViewController()
                         let navController = UINavigationController(rootViewController: usersVC)
                         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                            let window = windowScene.windows.first{
