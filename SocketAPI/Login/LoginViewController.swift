@@ -24,6 +24,7 @@ class LoginViewController: UIViewController {
         textField.layer.borderWidth = 1
         textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .none
+        textField.autocorrectionType = .no
         textField.paddingLeft(10)
         return textField
     }()
@@ -36,6 +37,7 @@ class LoginViewController: UIViewController {
         textField.layer.borderWidth = 1
         textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .none
+        textField.autocorrectionType = .no
         textField.isSecureTextEntry = true
         textField.paddingLeft(10)
         return textField
@@ -49,6 +51,7 @@ class LoginViewController: UIViewController {
         textField.layer.borderWidth = 1
         textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .none
+        textField.autocorrectionType = .no
         textField.paddingLeft(10)
         return textField
     }()
