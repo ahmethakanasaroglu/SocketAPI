@@ -71,6 +71,8 @@ class ProfileViewController: UIViewController {
     }
     
     private func setupUI() {
+        navigationItem.title = "Profil"
+
         view.addSubview(profileContainerView)
         profileContainerView.addSubview(nameLabel)
         profileContainerView.addSubview(emailLabel)
