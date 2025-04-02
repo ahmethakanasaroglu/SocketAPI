@@ -6,11 +6,11 @@
 //
 
 import UIKit
+import FirebaseAuth
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
-
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         
@@ -18,7 +18,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         
         window = UIWindow(frame: windowScene.coordinateSpace.bounds)
         window?.windowScene = windowScene
-        window?.rootViewController = LoginViewController()
+
+        // Kullanıcı oturumu kontrolü
+        if Auth.auth().currentUser != nil {
+            window?.rootViewController = MainTabBarController()
+        } else {
+            window?.rootViewController = LoginViewController()
+        }
+        
         window?.makeKeyAndVisible()
         applySavedTheme()
     }
@@ -29,4 +36,3 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
 }
-
