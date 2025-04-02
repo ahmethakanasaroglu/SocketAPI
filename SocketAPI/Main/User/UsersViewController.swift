@@ -30,9 +30,27 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         tableView.dataSource = self
         tableView.register(UserTableViewCell.self, forCellReuseIdentifier: "UserCell")
         
-        tableView.separatorStyle = .none // Hücreler arasındaki çizgileri kaldırıyoruz
-        tableView.backgroundColor = .systemGroupedBackground // Arka plan rengini şık yapıyoruz
+        tableView.separatorStyle = .singleLine
+        tableView.separatorInset = UIEdgeInsets(top: 0, left: 80, bottom: 0, right: 16) // Profil resmi hizasında çizgi başlasın
+        tableView.backgroundColor = .systemGroupedBackground
+
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(refreshUserList), for: .valueChanged)
+        tableView.refreshControl = refreshControl
+
     }
+    
+    @objc func refreshUserList() {
+        fetchUsers { [weak self] fetchedUsers in
+            guard let self = self else { return }
+            self.users = fetchedUsers
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+                self.tableView.refreshControl?.endRefreshing()
+            }
+        }
+    }
+
     
     func fetchUsers(completion: @escaping ([User]) -> Void) {
         let db = Firestore.firestore()
