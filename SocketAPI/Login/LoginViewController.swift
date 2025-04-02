@@ -124,22 +124,38 @@ class LoginViewController: UIViewController {
     }
     
     @objc func registerTapped() {
-        guard let name = nameTextField.text, let email = emailTextField.text, let password = passwordTextField.text, !name.isEmpty, !email.isEmpty, !password.isEmpty else {
+        guard let name = nameTextField.text,
+              let email = emailTextField.text,
+              let password = passwordTextField.text,
+              !name.isEmpty, !email.isEmpty, !password.isEmpty else {
             hataMesaji(titleInput: "Hata!", messageInput: "İsim, Email ve Şifre Giriniz")
             return
         }
-        viewModel.register(name:name, email: email, password: password) { success in
-            if success {
-                print("✅ Kayıt başarılı! Kullanıcı Firestore'a kaydedildi.")
-                DispatchQueue.main.async {
-                    let usersVC = UsersViewController()
-                    self.navigationController?.pushViewController(usersVC, animated: true)
+        
+        viewModel.register(name: name, email: email, password: password) { success in
+            DispatchQueue.main.async {
+                if success {
+                    let alert = UIAlertController(title: "Başarılı",
+                                                  message: "Kayıt işlemi başarıyla tamamlandı!",
+                                                  preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "Tamam", style: .default) { _ in
+                        // Kullanıcı başarılı kayıt olduktan sonra UsersViewController'a yönlendir
+                        let usersVC = MainTabBarController()
+                        let navController = UINavigationController(rootViewController: usersVC)
+                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let window = windowScene.windows.first{
+                            window.rootViewController = navController
+                            window.makeKeyAndVisible()
+                        }
+                    })
+                    self.present(alert, animated: true, completion: nil)
+                } else {
+                    self.hataMesaji(titleInput: "Hata!", messageInput: "Kayıt sırasında bir hata oluştu.")
                 }
-            } else {
-                print("❌ Kayıt başarısız! Lütfen tekrar deneyin.")
             }
         }
     }
+
     
     func hataMesaji(titleInput: String, messageInput: String) {
         let alert = UIAlertController(title: titleInput, message: messageInput, preferredStyle: .alert)
