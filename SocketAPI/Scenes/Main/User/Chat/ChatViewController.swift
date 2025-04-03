@@ -6,11 +6,15 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     private let messageInputField = UITextField()
     private let sendButton = UIButton()
     var selectedUser: User? // Kullanıcı buraya atanacak
+    var channelId: String = "" // Eklediğimiz yeni özellik
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = selectedUser?.name
-                // Seçilen kullanıcının ID’sine göre mesajları alacağız.
+        
+        // WebSocketManager'ı channelId ile ayarla
+        viewModel.setupSocket(withChannelId: channelId)
+        
         setupUI()
         setupGestures()
         viewModel.onMessageReceived = { [weak self] in
@@ -20,12 +24,12 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
         
         // Eğer otomatik bir geri butonu istiyorsanız:
-                self.navigationItem.leftBarButtonItem = UIBarButtonItem(
-                    title: "Geri",
-                    style: .plain,
-                    target: self,
-                    action: #selector(goBack)
-                )
+        self.navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Geri",
+            style: .plain,
+            target: self,
+            action: #selector(goBack)
+        )
 
         // Klavye bildirimlerini dinle
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
@@ -35,6 +39,8 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     deinit {
         // Bildirimleri kaldır
         NotificationCenter.default.removeObserver(self)
+        // WebSocket bağlantısını kapat
+        viewModel.disconnectSocket()
     }
 
     @objc func goBack() {
@@ -49,8 +55,8 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         
     func loadMessages() {
         guard let userID = selectedUser?.uid else { return }
-            // Firestore’dan bu kullanıcıyla olan mesajları çek
-        }
+        // Firestore'dan bu kullanıcıyla olan mesajları çek
+    }
     
     private func setupUI() {
         view.backgroundColor = .white

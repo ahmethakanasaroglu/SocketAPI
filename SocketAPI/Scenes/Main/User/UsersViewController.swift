@@ -130,10 +130,22 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     func openChat(with user: User) {
         let chatVC = ChatViewController()
         chatVC.selectedUser = user
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            window.rootViewController = UINavigationController(rootViewController: chatVC)
-            window.makeKeyAndVisible()
+        
+        // Mevcut kullanıcının UID'sini al
+        if let currentUser = Auth.auth().currentUser {
+            let currentUserId = currentUser.uid
+            
+            // İki kullanıcı ID'sinden unique channel ID oluştur
+            let channelId = WebSocketManager.createChannelId(currentUserId: currentUserId, otherUserId: user.uid)
+            chatVC.channelId = channelId
+            
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first {
+                window.rootViewController = UINavigationController(rootViewController: chatVC)
+                window.makeKeyAndVisible()
+            }
+        } else {
+            print("❌ Mevcut kullanıcı oturum açmamış!")
         }
     }
 }
