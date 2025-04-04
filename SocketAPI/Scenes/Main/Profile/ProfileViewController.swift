@@ -178,7 +178,32 @@ class ProfileViewController: UIViewController {
     }
     
     @objc private func logoutTapped() {
-        try? Auth.auth().signOut()
-        dismiss(animated: true, completion: nil)
+        let alert = UIAlertController(title: "Çıkış Yap", message: "Hesabınızdan çıkış yapmak istediğinize emin misiniz?", preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "İptal", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "Çıkış Yap", style: .destructive, handler: { _ in
+            self.performLogout()
+        }))
+        
+        present(alert, animated: true, completion: nil)
+    }
+    
+    private func performLogout() {
+        do {
+            try Auth.auth().signOut()
+            redirectToLogin()
+        } catch {
+            print("Çıkış yapılamadı: \(error.localizedDescription)")
+        }
+    }
+    
+    private func redirectToLogin() {
+        let loginVC = LoginViewController()
+        let navController = UINavigationController(rootViewController: loginVC)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController = navController
+            window.makeKeyAndVisible()
+        }
     }
 }
