@@ -8,30 +8,31 @@ class ProfileViewController: UIViewController {
     
     private let profileImageView: UIImageView = {
         let view = UIImageView()
-        view.layer.cornerRadius = 30
+        view.layer.cornerRadius = 50
         view.clipsToBounds = true
         view.backgroundColor = .systemGray
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.image = UIImage(systemName: "person.circle.fill") // Placeholder
-        
+        view.image = UIImage(systemName: "person.circle.fill")
         return view
     }()
     
-    private let profileContainerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .secondarySystemBackground
-        view.layer.cornerRadius = 15
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
+    private let nameTextField: UITextField = {
+        let textField = UITextField()
+        textField.font = UIFont.systemFont(ofSize: 22, weight: .bold)
+        textField.textColor = .label
+        textField.textAlignment = .center
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.borderStyle = .roundedRect
+        textField.isUserInteractionEnabled = false // Başlangıçta değiştirilemez
+        return textField
     }()
     
-    private let nameLabel: UILabel = {
-        let label = UILabel()
-        label.font = UIFont.systemFont(ofSize: 22, weight: .bold)
-        label.textColor = .label
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
+    private let changeNameButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Değiştir", for: .normal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(changeNameTapped), for: .touchUpInside)
+        return button
     }()
     
     private let emailLabel: UILabel = {
@@ -51,6 +52,26 @@ class ProfileViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
+    
+    private let saveButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Kaydet", for: .normal)
+        button.setTitleColor(.white, for: .normal)
+        button.backgroundColor = .systemBlue
+        button.layer.cornerRadius = 12
+        button.titleLabel?.font = UIFont.boldSystemFont(ofSize: 18)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
+        button.isEnabled = false // Başlangıçta devre dışı
+        button.alpha = 0.5 // Aktif değilken opasiteyi %50 yaparak daha soluk göster
+        return button
+    }()
+    
+    // Aktif olmadığında butonun rengini soluklaştıran özellik
+    func updateSaveButtonState(isEnabled: Bool) {
+        saveButton.isEnabled = isEnabled
+        saveButton.alpha = isEnabled ? 1.0 : 0.5 // Eğer buton aktifse tam renk, değilse daha soluk
+    }
     
     
     private let logoutButton: UIButton = {
@@ -81,100 +102,83 @@ class ProfileViewController: UIViewController {
     private func setupUI() {
         navigationItem.title = "Profil"
         
-        view.addSubview(profileContainerView)
-        profileContainerView.addSubview(nameLabel)
-        profileContainerView.addSubview(emailLabel)
-        profileContainerView.addSubview(uidLabel)
-        profileContainerView.addSubview(profileImageView)
-        view.addSubview(logoutButton)
+        let profileStackView = UIStackView()
+        profileStackView.axis = .vertical
+        profileStackView.spacing = 16
+        profileStackView.alignment = .center
+        profileStackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        profileStackView.addArrangedSubview(profileImageView)
+        profileStackView.addArrangedSubview(nameTextField)
+        profileStackView.addArrangedSubview(changeNameButton)
+        profileStackView.addArrangedSubview(emailLabel)
+        profileStackView.addArrangedSubview(uidLabel)
+        
+        let mainStackView = UIStackView()
+        mainStackView.axis = .vertical
+        mainStackView.spacing = 40
+        mainStackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        mainStackView.addArrangedSubview(profileStackView)
+        mainStackView.addArrangedSubview(saveButton)
+        mainStackView.addArrangedSubview(logoutButton)
+        
+        view.addSubview(mainStackView)
         
         NSLayoutConstraint.activate([
-            profileImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 26),
-            profileImageView.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -160),
-            profileImageView.widthAnchor.constraint(equalToConstant: 65),
-            profileImageView.heightAnchor.constraint(equalToConstant: 65),
+            profileImageView.widthAnchor.constraint(equalToConstant: 100),
+            profileImageView.heightAnchor.constraint(equalToConstant: 100),
             
-            profileContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            profileContainerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 50),
-            profileContainerView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.9),
-            profileContainerView.heightAnchor.constraint(equalToConstant: 150),
+            mainStackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            mainStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            mainStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             
-            // 🆕 Name Label en üstte
-            nameLabel.topAnchor.constraint(equalTo: profileContainerView.topAnchor, constant: 12),
-            nameLabel.leadingAnchor.constraint(equalTo: profileContainerView.leadingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(equalTo: profileContainerView.trailingAnchor, constant: -16),
-            
-            // 🆕 Email Label ortada
-            emailLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 8),
-            emailLabel.leadingAnchor.constraint(equalTo: profileContainerView.leadingAnchor, constant: 16),
-            emailLabel.trailingAnchor.constraint(equalTo: profileContainerView.trailingAnchor, constant: -16),
-            
-            // 🆕 UID Label en altta
-            uidLabel.topAnchor.constraint(equalTo: emailLabel.bottomAnchor, constant: 8),
-            uidLabel.leadingAnchor.constraint(equalTo: profileContainerView.leadingAnchor, constant: 16),
-            uidLabel.trailingAnchor.constraint(equalTo: profileContainerView.trailingAnchor, constant: -16),
-            uidLabel.bottomAnchor.constraint(equalTo: profileContainerView.bottomAnchor, constant: -12), // Alt kenara sabitledik
-            
-            logoutButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            logoutButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -30),
-            logoutButton.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.7),
+            saveButton.heightAnchor.constraint(equalToConstant: 50),
             logoutButton.heightAnchor.constraint(equalToConstant: 50)
         ])
-        
     }
     
     private func fetchUserData() {
         guard let user = Auth.auth().currentUser else { return }
         let db = Firestore.firestore()
         
-        db.collection("users").whereField("email", isEqualTo: user.email ?? "").getDocuments { snapshot, error in
+        db.collection("users").document(user.uid).getDocument { snapshot, error in
             if let error = error {
-                print("Kullanıcı bilgileri alınamadı: \(error.localizedDescription)")
+                print("Hata: \(error.localizedDescription)")
                 return
             }
-            
-            if let document = snapshot?.documents.first {
-                let data = document.data()
-                let name = data["name"] as? String ?? "Bilinmeyen Kullanıcı"
-                let email = user.email ?? "Bilinmeyen E-posta"
-                let uid = user.uid
-                
-                DispatchQueue.main.async {
-                    self.uidLabel.text = "UID: \(uid)"
-                    self.nameLabel.text = name
-                    self.emailLabel.text = email
-                }
+            guard let data = snapshot?.data() else { return }
+            self.nameTextField.text = data["name"] as? String ?? ""
+            self.emailLabel.text = user.email
+            self.uidLabel.text = user.uid
+        }
+    }
+    
+    @objc private func saveTapped() {
+        guard let user = Auth.auth().currentUser else { return }
+        let db = Firestore.firestore()
+        let newName = nameTextField.text ?? ""
+        
+        db.collection("users").document(user.uid).updateData(["name": newName]) { error in
+            if let error = error {
+                print("İsim güncellenirken hata oluştu: \(error.localizedDescription)")
+            } else {
+                print("İsim başarıyla güncellendi!")
+                self.nameTextField.isUserInteractionEnabled = false // Kaydettikten sonra değiştiremez
+                self.changeNameButton.isEnabled = true // "Değiştir" butonunu aktif et
+                self.updateSaveButtonState(isEnabled: false) // "Kaydet" butonunu devre dışı bırak
             }
         }
+    }
+    
+    @objc private func changeNameTapped() {
+        nameTextField.isUserInteractionEnabled = true // Değiştirme butonuna tıklanınca textfield aktif olacak
+        self.updateSaveButtonState(isEnabled: true) // "Kaydet" butonunu aktif et
+        changeNameButton.isEnabled = false // "Değiştir" butonunu devre dışı bırak
     }
     
     @objc private func logoutTapped() {
-        let alert = UIAlertController(title: "Çıkış Yap", message: "Hesabınızdan çıkış yapmak istediğinize emin misiniz?", preferredStyle: .alert)
-        
-        alert.addAction(UIAlertAction(title: "İptal", style: .cancel, handler: nil))
-        alert.addAction(UIAlertAction(title: "Çıkış Yap", style: .destructive, handler: { _ in
-            self.performLogout()
-        }))
-        
-        present(alert, animated: true, completion: nil)
-    }
-    
-    private func performLogout() {
-        do {
-            try Auth.auth().signOut()
-            redirectToLogin()
-        } catch {
-            print("Çıkış yapılamadı: \(error.localizedDescription)")
-        }
-    }
-    
-    private func redirectToLogin() {
-        let loginVC = LoginViewController()
-        let navController = UINavigationController(rootViewController: loginVC)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            window.rootViewController = navController
-            window.makeKeyAndVisible()
-        }
+        try? Auth.auth().signOut()
+        dismiss(animated: true, completion: nil)
     }
 }
