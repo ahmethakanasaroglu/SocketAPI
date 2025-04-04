@@ -49,7 +49,7 @@ class LoginViewModel {
                     print("Firestore'a kaydedilemedi: \(error.localizedDescription)")
                     completion(false)
                 } else {
-                    print("🔥 Kullanıcı Firestore'a başarıyla kaydedildi! UID: \(uid)")
+                    print("Kullanıcı Firestore'a başarıyla kaydedildi! UID: \(uid)")
                     completion(true)
                 }
             }

@@ -18,7 +18,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         if let userID = Auth.auth().currentUser?.uid {
             currentUserID = userID
         } else {
-            print("⚠️ Kullanıcı oturumu bulunamadı!")
+            print("Kullanıcı oturumu bulunamadı!")
         }
         
         // WebSocketManager'ı channelId ile ayarla

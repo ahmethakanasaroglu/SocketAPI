@@ -129,7 +129,7 @@ class ProfileViewController: UIViewController {
         
         db.collection("users").whereField("email", isEqualTo: user.email ?? "").getDocuments { snapshot, error in
             if let error = error {
-                print("❌ Kullanıcı bilgileri alınamadı: \(error.localizedDescription)")
+                print("Kullanıcı bilgileri alınamadı: \(error.localizedDescription)")
                 return
             }
             
@@ -164,7 +164,7 @@ class ProfileViewController: UIViewController {
             try Auth.auth().signOut()
             redirectToLogin()
         } catch {
-            print("❌ Çıkış yapılamadı: \(error.localizedDescription)")
+            print("Çıkış yapılamadı: \(error.localizedDescription)")
         }
     }
     

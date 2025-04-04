@@ -73,14 +73,14 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         let db = Firestore.firestore()
         
         guard let currentUserEmail = Auth.auth().currentUser?.email else {
-            print("❌ Giriş yapan kullanıcı bulunamadı.")
+            print("Giriş yapan kullanıcı bulunamadı.")
             completion([])
             return
         }
         
         db.collection("users").whereField("email", isNotEqualTo: currentUserEmail).getDocuments { snapshot, error in
             if let error = error {
-                print("❌ Kullanıcılar getirilemedi: \(error.localizedDescription)")
+                print("Kullanıcılar getirilemedi: \(error.localizedDescription)")
                 completion([])
                 return
             }
@@ -145,7 +145,7 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                 window.makeKeyAndVisible()
             }
         } else {
-            print("❌ Mevcut kullanıcı oturum açmamış!")
+            print("Mevcut kullanıcı oturum açmamış!")
         }
     }
 }

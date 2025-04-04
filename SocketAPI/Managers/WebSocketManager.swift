@@ -50,7 +50,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
     
     func connect() {
         if socket == nil {
-            print("❌ Socket henüz kurulmadı. Önce setupSocketWithChannelId fonksiyonunu çağırın.")
+            print("Socket henüz kurulmadı. Önce setupSocketWithChannelId fonksiyonunu çağırın.")
             return
         }
         socket?.connect()
@@ -73,17 +73,17 @@ class WebSocketManager: NSObject, WebSocketDelegate {
         switch event {
         case .connected(_):
             isConnected = true
-            print("✅ WebSocket Bağlandı - Channel: \(currentChannelId)")
+            print("WebSocket Bağlandı - Channel: \(currentChannelId)")
         case .disconnected(let reason, let code):
             isConnected = false
-            print("❌ WebSocket Koptu: \(reason) (Code: \(code))")
+            print("WebSocket Koptu: \(reason) (Code: \(code))")
         case .text(let message):
-            print("📩 Mesaj Alındı: \(message)")
+            print("Mesaj Alındı: \(message)")
             // Sadece göster, kaydetme
             delegate?.didReceiveMessage(message, isFromCurrentUser: false, messageId: UUID().uuidString)
 
         case .error(let error):
-            print("⚠️ Hata Oluştu: \(String(describing: error))")
+            print("Hata Oluştu: \(String(describing: error))")
         default:
             break
         }
@@ -91,7 +91,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
     
     private func listenToMessagesFromFirestore() {
         guard !currentChannelId.isEmpty else {
-            print("❌ ChannelID boş, mesajlar dinlenemiyor")
+            print("ChannelID boş, mesajlar dinlenemiyor")
             return
         }
 
@@ -104,7 +104,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
             .order(by: "timestamp", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
-                    print("❌ Firestore dinleme hatası: \(error.localizedDescription)")
+                    print("Firestore dinleme hatası: \(error.localizedDescription)")
                     return
                 }
 
@@ -130,7 +130,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
     // Firestore'a mesaj kaydetme
     private func saveMessageToFirestore(message: String, isFromCurrentUser: Bool) {
         guard !currentChannelId.isEmpty else {
-            print("❌ ChannelID boş, mesaj kaydedilemiyor")
+            print("ChannelID boş, mesaj kaydedilemiyor")
             return
         }
 
@@ -145,9 +145,9 @@ class WebSocketManager: NSObject, WebSocketDelegate {
 
         db.collection("chats").document(currentChannelId).collection("messages").addDocument(data: messageData) { [weak self] error in
             if let error = error {
-                print("❌ Mesaj Firestore'a kaydedilirken hata oluştu: \(error.localizedDescription)")
+                print("Mesaj Firestore'a kaydedilirken hata oluştu: \(error.localizedDescription)")
             } else {
-                print("✅ Mesaj Firestore'a başarıyla kaydedildi")
+                print("Mesaj Firestore'a başarıyla kaydedildi")
                 
                 // Mesaj referansını almak için başka bir şekilde erişim sağlayabilirsiniz
                 self?.db.collection("chats").document(self?.currentChannelId ?? "").collection("messages")
@@ -155,7 +155,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
                     .limit(to: 1)
                     .getDocuments { snapshot, error in
                         if let error = error {
-                            print("❌ Mesaj referansı alınırken hata oluştu: \(error.localizedDescription)")
+                            print("Mesaj referansı alınırken hata oluştu: \(error.localizedDescription)")
                         } else if let snapshot = snapshot, let document = snapshot.documents.first {
                             // En son kaydedilen mesajın ID'sini al
                             let messageId = document.documentID
@@ -171,7 +171,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
     // Firestore'dan mesajları yükleme
     private func loadMessagesFromFirestore() {
         guard !currentChannelId.isEmpty else {
-            print("❌ ChannelID boş, mesajlar yüklenemiyor")
+            print("ChannelID boş, mesajlar yüklenemiyor")
             return
         }
         
@@ -179,12 +179,12 @@ class WebSocketManager: NSObject, WebSocketDelegate {
             .order(by: "timestamp", descending: false)
             .getDocuments { [weak self] (querySnapshot, error) in
                 if let error = error {
-                    print("❌ Mesajlar Firestore'dan yüklenirken hata oluştu: \(error.localizedDescription)")
+                    print("Mesajlar Firestore'dan yüklenirken hata oluştu: \(error.localizedDescription)")
                     return
                 }
                 
                 guard let documents = querySnapshot?.documents else {
-                    print("ℹ️ Firestore'da hiç mesaj bulunamadı veya yüklendi")
+                    print("Firestore'da hiç mesaj bulunamadı veya yüklendi")
                     return
                 }
                 
@@ -202,22 +202,22 @@ class WebSocketManager: NSObject, WebSocketDelegate {
                 // Yüklenen tüm mesajları bir kerede delegate'e ilet
                 self?.delegate?.didLoadMessages(loadedMessages)
                 
-                print("✅ \(documents.count) mesaj Firestore'dan yüklendi")
+                print("\(documents.count) mesaj Firestore'dan yüklendi")
             }
     }
     
     // Mesajı silme fonksiyonu
     func deleteMessage(messageId: String) {
         guard !currentChannelId.isEmpty else {
-            print("❌ ChannelID boş, mesaj silinemiyor")
+            print("ChannelID boş, mesaj silinemiyor")
             return
         }
         
         db.collection("chats").document(currentChannelId).collection("messages").document(messageId).delete { error in
             if let error = error {
-                print("❌ Mesaj Firestore'dan silinirken hata oluştu: \(error.localizedDescription)")
+                print("Mesaj Firestore'dan silinirken hata oluştu: \(error.localizedDescription)")
             } else {
-                print("✅ Mesaj Firestore'dan başarıyla silindi")
+                print("Mesaj Firestore'dan başarıyla silindi")
             }
         }
     }
@@ -225,7 +225,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
     // Tüm sohbeti silme fonksiyonu
     func deleteAllMessages(completion: @escaping (Bool) -> Void) {
         guard !currentChannelId.isEmpty else {
-            print("❌ ChannelID boş, sohbet silinemiyor")
+            print("ChannelID boş, sohbet silinemiyor")
             completion(false)
             return
         }
@@ -233,13 +233,13 @@ class WebSocketManager: NSObject, WebSocketDelegate {
         // Önce tüm mesaj dokümanlarını alıp sonra sil
         db.collection("chats").document(currentChannelId).collection("messages").getDocuments { [weak self] (snapshot, error) in
             if let error = error {
-                print("❌ Mesajlar alınırken hata oluştu: \(error.localizedDescription)")
+                print("Mesajlar alınırken hata oluştu: \(error.localizedDescription)")
                 completion(false)
                 return
             }
             
             guard let documents = snapshot?.documents else {
-                print("❌ Silinecek mesaj bulunamadı veya zaten silinmiş")
+                print("Silinecek mesaj bulunamadı veya zaten silinmiş")
                 completion(true)
                 return
             }
@@ -255,10 +255,10 @@ class WebSocketManager: NSObject, WebSocketDelegate {
             
             batch?.commit { error in
                 if let error = error {
-                    print("❌ Toplu silme işlemi sırasında hata oluştu: \(error.localizedDescription)")
+                    print("Toplu silme işlemi sırasında hata oluştu: \(error.localizedDescription)")
                     completion(false)
                 } else {
-                    print("✅ Tüm sohbet başarıyla silindi")
+                    print("Tüm sohbet başarıyla silindi")
                     completion(true)
                 }
             }
