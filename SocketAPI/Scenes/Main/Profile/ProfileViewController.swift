@@ -2,9 +2,13 @@ import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 
-class ProfileViewController: UIViewController {
+class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource {
     
     private let themeSwitchButton = ThemeSwitchButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+    
+    // Cinsiyet seçimi için picker
+    private let genderPicker = UIPickerView()
+    private let genderOptions = ["Erkek", "Kadın", "Diğer"]
     
     // Orijinal değerleri saklayacak değişkenler
     private var originalValues: [String: String] = [
@@ -130,6 +134,7 @@ class ProfileViewController: UIViewController {
     }()
     
     // Gender
+    // Gender
     private let genderTextField: UITextField = {
         let textField = UITextField()
         textField.font = UIFont.systemFont(ofSize: 18, weight: .medium)
@@ -227,12 +232,46 @@ class ProfileViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         setupUI()
+        setupGenderPicker()
         fetchUserData()
         setupRightBarButton()
         
         // Ekranı kapatma işlemi için klavye
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         view.addGestureRecognizer(tapGesture)
+    }
+    
+    private func setupGenderPicker() {
+        genderPicker.delegate = self
+        genderPicker.dataSource = self
+        
+        // Cinsiyet seçici araç çubuğu oluştur
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        
+        // Tamam butonu
+        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(genderPickerDoneTapped))
+        // İptal butonu
+        let cancelButton = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(genderPickerCancelTapped))
+        // Ara boşluk
+        let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        
+        toolbar.setItems([cancelButton, flexSpace, doneButton], animated: true)
+        
+        // Cinsiyet alanına picker'ı tanımla
+        genderTextField.inputView = genderPicker
+        genderTextField.inputAccessoryView = toolbar
+    }
+    
+    @objc private func genderPickerDoneTapped() {
+        let selectedRow = genderPicker.selectedRow(inComponent: 0)
+        genderTextField.text = genderOptions[selectedRow]
+        genderTextField.resignFirstResponder()
+    }
+    
+    @objc private func genderPickerCancelTapped() {
+        // Değişiklik yapmadan kapat
+        genderTextField.resignFirstResponder()
     }
     
     @objc private func dismissKeyboard() {
@@ -424,6 +463,12 @@ class ProfileViewController: UIViewController {
             
             self.cityTextField.text = city
             self.genderTextField.text = gender
+            
+            // Eğer gender değeri varsa, picker'ı ona göre ayarla
+            if let index = self.genderOptions.firstIndex(of: gender) {
+                self.genderPicker.selectRow(index, inComponent: 0, animated: false)
+            }
+            
             self.emailLabel.text = user.email
             self.uidLabel.text = user.uid
             
@@ -454,7 +499,50 @@ class ProfileViewController: UIViewController {
     }
     
     @objc private func changeGenderTapped() {
-        toggleFieldEditing(field: "gender", textField: genderTextField, button: changeGenderButton)
+        let isEditing = !editingFields["gender", default: false]
+        
+        // Eğer değiştirme iptal ediliyorsa, değeri orijinal değere geri al
+        if !isEditing && editingFields["gender", default: false] {
+            genderTextField.text = originalValues["gender"]
+        }
+        
+        editingFields["gender"] = isEditing
+        
+        changeGenderButton.setTitle(isEditing ? "İptal" : "Değiştir", for: .normal)
+        
+        if isEditing {
+            // Cinsiyet için UIPickerView'u göster
+            showGenderPicker()
+        }
+        
+        // Herhangi bir alan düzenleme durumunda ise kaydet butonunu aktif et
+        let anyFieldEditing = editingFields.values.contains(true)
+        updateSaveButtonState(isEnabled: anyFieldEditing)
+    }
+    
+    private func showGenderPicker() {
+        // Sadece picker görünecek, manuel yazım olmayacak
+        let actionSheet = UIAlertController(title: "Cinsiyet Seçiniz", message: nil, preferredStyle: .actionSheet)
+        
+        for option in genderOptions {
+            let action = UIAlertAction(title: option, style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                self.genderTextField.text = option
+            }
+            actionSheet.addAction(action)
+        }
+        
+        let cancelAction = UIAlertAction(title: "İptal", style: .cancel) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // İptal edildiğinde, eğer metin boşsa orijinal değere dön
+            if self.genderTextField.text?.isEmpty ?? true {
+                self.genderTextField.text = self.originalValues["gender"]
+            }
+        }
+        actionSheet.addAction(cancelAction)
+        
+        present(actionSheet, animated: true)
     }
     
     private func toggleFieldEditing(field: String, textField: UITextField, button: UIButton) {
@@ -485,7 +573,82 @@ class ProfileViewController: UIViewController {
         saveButton.alpha = isEnabled ? 1.0 : 0.5 // Eğer buton aktifse tam renk, değilse daha soluk
     }
     
+    // saveTapped metodunda şehir validasyonu ekleyelim
     @objc private func saveTapped() {
+        // Validasyon kontrolleri
+        var validationErrors: [String] = []
+        
+        // İsim-soyisim validasyonu
+        if editingFields["name", default: false] {
+            if let name = nameTextField.text {
+                if name.isEmpty {
+                    validationErrors.append("İsim-Soyisim alanı boş bırakılamaz.")
+                } else {
+                    // Sadece harflerden ve boşluklardan oluşmalı
+                    let allowedCharacterSet = CharacterSet.letters.union(CharacterSet.whitespaces)
+                    if name.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
+                        validationErrors.append("İsim-Soyisim sadece harflerden oluşmalıdır.")
+                    }
+                    
+                    // Boşluk dahil en az 7 karakter olmalı
+                    if name.count < 7 {
+                        validationErrors.append("İsim-Soyisim boşluk dahil en az 7 karakter olmalıdır.")
+                    }
+                    
+                    // Boşluk hariç en az 6 karakter kontrolü
+                    let nonSpaceCharacters = name.filter { !$0.isWhitespace }
+                    if nonSpaceCharacters.count < 6 {
+                        validationErrors.append("İsim-Soyisim boşluk hariç en az 6 karakter olmalıdır.")
+                    }
+                }
+            }
+        }
+        
+        // Yaş validasyonu
+        if editingFields["age", default: false] {
+            if let ageText = ageTextField.text {
+                if ageText.isEmpty {
+                    validationErrors.append("Yaş alanı boş bırakılamaz.")
+                } else {
+                    // Sadece rakamlardan oluşmalı
+                    if !ageText.allSatisfy({ $0.isNumber }) {
+                        validationErrors.append("Yaş sadece rakamlardan oluşmalıdır.")
+                    } else if ageText.count > 3 {
+                        validationErrors.append("Yaş en fazla 3 basamaklı olabilir.")
+                    } else if let age = Int(ageText), age < 1 {
+                        validationErrors.append("Yaş 0'dan büyük olmalıdır.")
+                    }
+                }
+            }
+        }
+        
+        // Şehir validasyonu
+        if editingFields["city", default: false] {
+            if let city = cityTextField.text {
+                if city.isEmpty {
+                    validationErrors.append("Şehir alanı boş bırakılamaz.")
+                } else {
+                    // Sadece harflerden ve boşluklardan oluşmalı
+                    let allowedCharacterSet = CharacterSet.letters.union(CharacterSet.whitespaces)
+                    if city.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
+                        validationErrors.append("Şehir sadece harflerden oluşmalıdır.")
+                    }
+                    
+                    // En az 3 karakter olmalı
+                    if city.count < 3 {
+                        validationErrors.append("Şehir en az 3 karakter olmalıdır.")
+                    }
+                }
+            }
+        }
+        
+        // Validasyon hataları varsa, kullanıcıya göster ve işlemi durdur
+        if !validationErrors.isEmpty {
+            let errorMessage = validationErrors.joined(separator: "\n")
+            hataMesaji(titleInput: "Hata", messageInput: errorMessage)
+            return
+        }
+        
         guard let user = Auth.auth().currentUser else { return }
         let db = Firestore.firestore()
         
@@ -604,7 +767,7 @@ class ProfileViewController: UIViewController {
                 self.updateEditingState(false)
                 
                 // Başarılı güncelleme mesajı göster
-                self.hataMesaji(titleInput: "Başarılı", messageInput: "Profil bilgileriniz başarıyla güncellendi.")
+                self.hataMesaji(titleInput: "✅ Başarılı", messageInput: "Profil bilgileriniz başarıyla güncellendi.")
             }
         }
     }
@@ -673,5 +836,18 @@ class ProfileViewController: UIViewController {
         let alert = UIAlertController(title: titleInput, message: messageInput, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Tamam", style: .default))
         present(alert, animated: true)
+    }
+    
+    // MARK: - UIPickerView Delegate & DataSource Methods
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return genderOptions.count
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        return genderOptions[row]
     }
 }
