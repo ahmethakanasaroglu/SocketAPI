@@ -17,12 +17,16 @@ class UsersViewModel {
     var onChatUsersLoaded: (() -> Void)?
     var onError: ((String) -> Void)?
     
+    var onInternetStatusChanged: ((Bool, String) -> Void)?
+
+    
     // MARK: - Initialization
     init() {
         if let currentUser = Auth.auth().currentUser {
             currentUserID = currentUser.uid
         }
         
+        observeInternetConnection()
         setupMessageListener()
     }
     
@@ -39,6 +43,19 @@ class UsersViewModel {
             }
         }
     }
+    
+    private func observeInternetConnection() {
+            NetworkMonitor.shared.connectionStatusChanged = { [weak self] isConnected in
+                let statusText = isConnected ? "" : "İnternet bağlantınız yok!"
+                self?.onInternetStatusChanged?(isConnected, statusText)
+            }
+        }
+        
+        func checkInternetConnection() {
+            let isConnected = NetworkMonitor.shared.isConnected
+            let statusText = isConnected ? "" : "İnternet bağlantınız yok! Çıkış Yapılıyor."
+            onInternetStatusChanged?(isConnected, statusText)
+        }
     
     func filterUsers(with searchText: String, inChatMode: Bool) -> [User] {
         let baseList = inChatMode ? chatUsers : users
