@@ -7,7 +7,7 @@ class RegisterViewModel {
     var onError: ((String, String) -> Void)?
     
     // MARK: - Validasyon Metodları
-    func validateFields(name: String?, username: String?, email: String?, password: String?, age: String?, city: String?) -> (isValid: Bool, emptyFields: [String], errors: [String: String]) {
+    func validateFields(name: String?, username: String?, email: String?, password: String?, confirmPassword: String?, age: String?, city: String?) -> (isValid: Bool, emptyFields: [String], errors: [String: String]) {
         var emptyFields: [String] = []
         var errors: [String: String] = [:]
         
@@ -15,6 +15,7 @@ class RegisterViewModel {
         if username?.isEmpty ?? true { emptyFields.append("Kullanıcı Adı") }
         if email?.isEmpty ?? true { emptyFields.append("Email") }
         if password?.isEmpty ?? true { emptyFields.append("Şifre") }
+        if confirmPassword?.isEmpty ?? true { emptyFields.append("Şifre Onayı") }
         if age?.isEmpty ?? true { emptyFields.append("Yaş") }
         if city?.isEmpty ?? true { emptyFields.append("Şehir") }
         
@@ -41,6 +42,14 @@ class RegisterViewModel {
             }
         }
         
+        // Şifre ve şifre onayı kontrolü
+        if let password = password, let confirmPassword = confirmPassword,
+           !password.isEmpty && !confirmPassword.isEmpty {
+            if password != confirmPassword {
+                errors["confirmPassword"] = "Girdiğiniz şifreler eşleşmiyor."
+            }
+        }
+        
         let isValid = emptyFields.isEmpty && errors.isEmpty
         return (isValid, emptyFields, errors)
     }
@@ -50,7 +59,13 @@ class RegisterViewModel {
     }
     
     // MARK: - Register İşlemi
-    func registerUser(name: String, username: String, email: String, password: String, age: Int, city: String, gender: String) {
+    func registerUser(name: String, username: String, email: String, password: String, confirmPassword: String, age: Int, city: String, gender: String) {
+        // Şifre ve onay şifresinin eşleştiğini kontrol et
+        if password != confirmPassword {
+            self.onError?("Hata", "Girdiğiniz şifreler eşleşmiyor.")
+            return
+        }
+        
         // Önce username'in benzersiz olup olmadığını kontrol et
         checkUsernameUniqueness(username) { [weak self] isUnique, error in
             guard let self = self else { return }

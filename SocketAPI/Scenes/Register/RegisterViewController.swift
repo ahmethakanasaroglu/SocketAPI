@@ -68,6 +68,19 @@ class RegisterViewController: UIViewController {
         return textField
     }()
     
+    // YENİ: Şifre onay alanı
+    private let confirmPasswordTextField: UITextField = {
+        let textField = UITextField()
+        textField.placeholder = "Şifre Onayı"
+        textField.borderStyle = .roundedRect
+        textField.layer.cornerRadius = 10
+        textField.layer.borderWidth = 1
+        textField.layer.borderColor = UIColor.lightGray.cgColor
+        textField.isSecureTextEntry = true
+        textField.paddingLeft(10)
+        return textField
+    }()
+    
     private let ageTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "Yaş"
@@ -127,11 +140,29 @@ class RegisterViewController: UIViewController {
         return button
     }()
     
+    // MARK: - Password Visibility Buttons
+    private let passwordToggleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "eye.slash"), for: .normal)
+        button.tintColor = .systemGray
+        button.addTarget(self, action: #selector(togglePasswordVisibility), for: .touchUpInside)
+        return button
+    }()
+    
+    private let confirmPasswordToggleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "eye.slash"), for: .normal)
+        button.tintColor = .systemGray
+        button.addTarget(self, action: #selector(toggleConfirmPasswordVisibility), for: .touchUpInside)
+        return button
+    }()
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor.systemBackground
         setupUI()
+        setupPasswordVisibilityButtons()
         bindViewModel()
         setupTextFieldDelegates()
     }
@@ -150,6 +181,7 @@ class RegisterViewController: UIViewController {
             usernameTextField,
             emailTextField,
             passwordTextField,
+            confirmPasswordTextField, // YENİ: Şifre onay alanı eklendi
             ageTextField,
             cityTextField,
             genderStackView,
@@ -173,11 +205,39 @@ class RegisterViewController: UIViewController {
         ])
     }
     
+    // MARK: - Password Visibility Buttons Setup
+    private func setupPasswordVisibilityButtons() {
+        // Şifre alanı için göz ikonu
+        passwordTextField.rightView = passwordToggleButton
+        passwordTextField.rightViewMode = .always
+        
+        // Şifre onay alanı için göz ikonu
+        confirmPasswordTextField.rightView = confirmPasswordToggleButton
+        confirmPasswordTextField.rightViewMode = .always
+        
+        // Butonlar için sağ kenar boşluğu ayarla
+        passwordToggleButton.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+        confirmPasswordToggleButton.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
+    }
+    
+    @objc private func togglePasswordVisibility() {
+        passwordTextField.isSecureTextEntry.toggle()
+        let imageName = passwordTextField.isSecureTextEntry ? "eye.slash" : "eye"
+        passwordToggleButton.setImage(UIImage(systemName: imageName), for: .normal)
+    }
+    
+    @objc private func toggleConfirmPasswordVisibility() {
+        confirmPasswordTextField.isSecureTextEntry.toggle()
+        let imageName = confirmPasswordTextField.isSecureTextEntry ? "eye.slash" : "eye"
+        confirmPasswordToggleButton.setImage(UIImage(systemName: imageName), for: .normal)
+    }
+    
     private func setupTextFieldDelegates() {
         nameTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
         usernameTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
         emailTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
         passwordTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
+        confirmPasswordTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged) // YENİ
         ageTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
         cityTextField.addTarget(self, action: #selector(textFieldChanged(_:)), for: .editingChanged)
     }
@@ -205,6 +265,7 @@ class RegisterViewController: UIViewController {
         resetFieldBorder(textField: usernameTextField)
         resetFieldBorder(textField: emailTextField)
         resetFieldBorder(textField: passwordTextField)
+        resetFieldBorder(textField: confirmPasswordTextField) // YENİ
         resetFieldBorder(textField: ageTextField)
         resetFieldBorder(textField: cityTextField)
     }
@@ -216,7 +277,7 @@ class RegisterViewController: UIViewController {
             
             DispatchQueue.main.async {
                 // Başarılı kayıt mesajı göster
-                let alert = UIAlertController(title: "Başarılı",
+                let alert = UIAlertController(title: "✅ Başarılı",
                                               message: "Kayıt işlemi başarıyla tamamlandı!",
                                               preferredStyle: .alert)
                 alert.addAction(UIAlertAction(title: "Tamam", style: .default) { _ in
@@ -295,9 +356,31 @@ class RegisterViewController: UIViewController {
         if let password = passwordTextField.text, password.isEmpty {
             emptyFields.append("Şifre")
             highlightFieldError(textField: passwordTextField)
-        } else if let password = passwordTextField.text, !password.isEmpty && password.count < 6 {
-            formatErrors.append((field: "password", message: "Şifre en az 6 karakter olmalıdır"))
-            highlightFieldError(textField: passwordTextField)
+        } else if let password = passwordTextField.text, !password.isEmpty {
+            // Şifre en az 6 karakter olmalı
+            if password.count < 6 {
+                formatErrors.append((field: "password", message: "Şifre en az 6 karakter olmalıdır"))
+                highlightFieldError(textField: passwordTextField)
+            }
+            
+            // Özel karakter kontrolü
+            let specialCharacterRegex = ".*[^A-Za-z0-9].*"
+            let containsSpecialCharacter = password.range(of: specialCharacterRegex, options: .regularExpression) != nil
+            
+            if !containsSpecialCharacter {
+                formatErrors.append((field: "password", message: "Şifre en az bir özel karakter içermelidir"))
+                highlightFieldError(textField: passwordTextField)
+            }
+        }
+        
+        // YENİ: Şifre onay kontrolü
+        if let confirmPassword = confirmPasswordTextField.text, confirmPassword.isEmpty {
+            emptyFields.append("Şifre Onayı")
+            highlightFieldError(textField: confirmPasswordTextField)
+        } else if let password = passwordTextField.text, let confirmPassword = confirmPasswordTextField.text,
+                  !password.isEmpty && !confirmPassword.isEmpty && password != confirmPassword {
+            formatErrors.append((field: "confirmPassword", message: "Şifreler eşleşmiyor"))
+            highlightFieldError(textField: confirmPasswordTextField)
         }
         
         // Yaş kontrolü
@@ -370,6 +453,7 @@ class RegisterViewController: UIViewController {
               let username = usernameTextField.text,
               let email = emailTextField.text,
               let password = passwordTextField.text,
+              let confirmPassword = confirmPasswordTextField.text, // YENİ
               let ageText = ageTextField.text, let age = Int(ageText),
               let city = cityTextField.text else {
             return
@@ -380,7 +464,7 @@ class RegisterViewController: UIViewController {
         let gender = genderOptions[genderSegmentedControl.selectedSegmentIndex]
         
         // ViewModel kullanarak kayıt işlemini yap
-        viewModel.registerUser(name: name, username: username, email: email, password: password, age: age, city: city, gender: gender)
+        viewModel.registerUser(name: name, username: username, email: email, password: password, confirmPassword: confirmPassword, age: age, city: city, gender: gender)
     }
     
     @objc private func backTapped() {
