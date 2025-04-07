@@ -1,28 +1,61 @@
 import UIKit
 import Firebase
 import FirebaseAuth
+import FirebaseFirestore
 
 class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
-    var users: [User] = [] // Kullanıcıları burada saklayacağız
+    var users: [User] = [] // Tüm kullanıcıları burada saklayacağız
+    var chatUsers: [User] = [] // Sadece sohbet geçmişi olanlar
     var filteredUsers: [User] = [] // Filtrelenmiş kullanıcılar
+    var isSearchActive = false // Arama modu aktif mi?
+    
     let tableView = UITableView()
     let searchBar = UISearchBar()
+    let segmentedControl = UISegmentedControl(items: ["Sohbetler", "Tüm Kullanıcılar"])
+    
+    // Kullanıcının ID'si
+    private var currentUserID: String = ""
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Mevcut kullanıcı ID'sini al
+        if let currentUser = Auth.auth().currentUser {
+            currentUserID = currentUser.uid
+        }
+        
         setupUI()
         setupTableView()
         setupTapGesture() // Klavyeyi kapatmak için dokunma jesti ekle
+        
+        // Başlangıçta "Sohbetler" sekmesini seç
+        segmentedControl.selectedSegmentIndex = 0
+        segmentChanged(segmentedControl)
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        fetchUsers { fetchedUsers in
-            self.users = fetchedUsers
-            self.filteredUsers = fetchedUsers
-            DispatchQueue.main.async {
-                self.tableView.reloadData()
+        
+        // Hem tüm kullanıcıları hem de sohbet geçmişi olanları getir
+        fetchAllUsers { [weak self] allUsers in
+            guard let self = self else { return }
+            self.users = allUsers
+            
+            // Sohbet geçmişi olan kullanıcıları getir
+            self.fetchChatUsers { chatUsers in
+                self.chatUsers = chatUsers
+                
+                // Segmented control'e göre hangi liste gösterilecek
+                if self.segmentedControl.selectedSegmentIndex == 0 {
+                    self.filteredUsers = self.chatUsers
+                } else {
+                    self.filteredUsers = self.users
+                }
+                
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                }
             }
         }
     }
@@ -30,6 +63,12 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     func setupUI() {
         navigationItem.title = "Sohbetler"
         
+        // Segmented Control
+        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        segmentedControl.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
+        view.addSubview(segmentedControl)
+        
+        // Search Bar
         searchBar.placeholder = "Kullanıcı ara"
         searchBar.delegate = self
         searchBar.sizeToFit()
@@ -38,7 +77,31 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         searchBar.autocapitalizationType = .none
         searchBar.autocorrectionType = .no
         
-        tableView.tableHeaderView = searchBar // Arama çubuğunu başlık olarak ekledik
+        // Constraints
+        NSLayoutConstraint.activate([
+            segmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            segmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            segmentedControl.heightAnchor.constraint(equalToConstant: 36)
+        ])
+    }
+    
+    // Segmented Control değişikliği
+    @objc func segmentChanged(_ sender: UISegmentedControl) {
+        isSearchActive = false
+        searchBar.text = ""
+        
+        if sender.selectedSegmentIndex == 0 {
+            // Sohbetler
+            filteredUsers = chatUsers
+            navigationItem.title = "Sohbetler"
+        } else {
+            // Tüm Kullanıcılar
+            filteredUsers = users
+            navigationItem.title = "Tüm Kullanıcılar"
+        }
+        
+        tableView.reloadData()
     }
     
     // Ekrana dokunma jesti ekleyerek klavyeyi kapatma
@@ -55,7 +118,7 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     
     func setupTableView() {
         view.addSubview(tableView)
-        tableView.frame = view.bounds
+        tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(UserTableViewCell.self, forCellReuseIdentifier: "UserCell")
@@ -64,24 +127,50 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         tableView.separatorInset = UIEdgeInsets(top: 0, left: 80, bottom: 0, right: 16) // Profil resmi hizasında çizgi başlasın
         tableView.backgroundColor = .systemGroupedBackground
         
+        // Search bar'ı header'a ekle
+        tableView.tableHeaderView = searchBar
+        
         let refreshControl = UIRefreshControl()
         refreshControl.addTarget(self, action: #selector(refreshUserList), for: .valueChanged)
         tableView.refreshControl = refreshControl
+        
+        // Constraints
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 8),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
     }
     
     @objc func refreshUserList() {
-        fetchUsers { [weak self] fetchedUsers in
+        fetchAllUsers { [weak self] allUsers in
             guard let self = self else { return }
-            self.users = fetchedUsers
-            self.filteredUsers = fetchedUsers
-            DispatchQueue.main.async {
-                self.tableView.reloadData()
-                self.tableView.refreshControl?.endRefreshing()
+            self.users = allUsers
+            
+            self.fetchChatUsers { chatUsers in
+                self.chatUsers = chatUsers
+                
+                if self.segmentedControl.selectedSegmentIndex == 0 {
+                    self.filteredUsers = self.chatUsers
+                } else {
+                    self.filteredUsers = self.users
+                }
+                
+                if self.isSearchActive, let searchText = self.searchBar.text, !searchText.isEmpty {
+                    self.filterUsers(with: searchText)
+                }
+                
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                    self.tableView.refreshControl?.endRefreshing()
+                }
             }
         }
     }
     
-    func fetchUsers(completion: @escaping ([User]) -> Void) {
+    // Tüm kullanıcıları getir
+    func fetchAllUsers(completion: @escaping ([User]) -> Void) {
         let db = Firestore.firestore()
         
         guard let currentUserEmail = Auth.auth().currentUser?.email else {
@@ -105,7 +194,6 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                 let uid = data["uid"] as? String ?? ""
                 let username = data["username"] as? String ?? "Bilinmeyen"
 
-                
                 let user = User(uid: uid, name: name, email: email, username: username)
                 users.append(user)
             }
@@ -114,13 +202,161 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         }
     }
     
+    // Sohbet geçmişi olan kullanıcıları getir
+    func fetchChatUsers(completion: @escaping ([User]) -> Void) {
+        guard !currentUserID.isEmpty else {
+            completion([])
+            return
+        }
+        
+        let db = Firestore.firestore()
+        
+        // Önce kullanıcının sohbet ettiği kişileri al
+        db.collection("chat_users").document(currentUserID).getDocument { [weak self] snapshot, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("Sohbet kullanıcıları getirilemedi: \(error.localizedDescription)")
+                completion([])
+                return
+            }
+            
+            // Kullanıcı kayıtlı değilse boş liste döndür
+            guard let snapshot = snapshot, snapshot.exists, let data = snapshot.data(),
+                  let chatUserIDs = data["chat_users"] as? [String] else {
+                completion([])
+                return
+            }
+            
+            if chatUserIDs.isEmpty {
+                completion([])
+                return
+            }
+            
+            // Sohbet edilen kullanıcıların bilgilerini getir
+            var chatUsers: [User] = []
+            let dispatchGroup = DispatchGroup()
+            
+            for userID in chatUserIDs {
+                dispatchGroup.enter()
+                
+                db.collection("users").document(userID).getDocument { userSnapshot, userError in
+                    defer { dispatchGroup.leave() }
+                    
+                    if let userError = userError {
+                        print("Kullanıcı bilgisi getirilemedi: \(userError.localizedDescription)")
+                        return
+                    }
+                    
+                    guard let userData = userSnapshot?.data() else { return }
+                    
+                    let name = userData["name"] as? String ?? "Bilinmeyen"
+                    let email = userData["email"] as? String ?? "Bilinmeyen"
+                    let uid = userData["uid"] as? String ?? ""
+                    let username = userData["username"] as? String ?? "Bilinmeyen"
+                    
+                    let user = User(uid: uid, name: name, email: email, username: username)
+                    chatUsers.append(user)
+                }
+            }
+            
+            dispatchGroup.notify(queue: .main) {
+                completion(chatUsers)
+            }
+        }
+    }
+    
+    // Kullanıcıyı sohbet listesine ekle
+    func addUserToChats(userID: String) {
+        guard !currentUserID.isEmpty else { return }
+        
+        let db = Firestore.firestore()
+        let chatUsersRef = db.collection("chat_users").document(currentUserID)
+        
+        // Önce mevcut listeyi al, sonra güncelle
+        chatUsersRef.getDocument { snapshot, error in
+            if let error = error {
+                print("Sohbet kullanıcıları alınamadı: \(error.localizedDescription)")
+                return
+            }
+            
+            var chatUserIDs: [String] = []
+            
+            if let snapshot = snapshot, snapshot.exists, let data = snapshot.data(),
+               let existingUsers = data["chat_users"] as? [String] {
+                chatUserIDs = existingUsers
+            }
+            
+            // Kullanıcı zaten listede mi kontrol et
+            if !chatUserIDs.contains(userID) {
+                chatUserIDs.append(userID)
+                
+                // Listeyi güncelle
+                chatUsersRef.setData(["chat_users": chatUserIDs]) { error in
+                    if let error = error {
+                        print("Sohbet kullanıcıları güncellenemedi: \(error.localizedDescription)")
+                    } else {
+                        print("Kullanıcı sohbet listesine eklendi: \(userID)")
+                    }
+                }
+            }
+        }
+    }
+    
+    // Kullanıcıyı sohbet listesinden çıkar
+    func removeUserFromChats(userID: String) {
+        guard !currentUserID.isEmpty else { return }
+        
+        let db = Firestore.firestore()
+        let chatUsersRef = db.collection("chat_users").document(currentUserID)
+        
+        // Önce mevcut listeyi al, sonra güncelle
+        chatUsersRef.getDocument { snapshot, error in
+            if let error = error {
+                print("Sohbet kullanıcıları alınamadı: \(error.localizedDescription)")
+                return
+            }
+            
+            var chatUserIDs: [String] = []
+            
+            if let snapshot = snapshot, snapshot.exists, let data = snapshot.data(),
+               let existingUsers = data["chat_users"] as? [String] {
+                chatUserIDs = existingUsers
+                
+                // Kullanıcıyı listeden çıkar
+                if let index = chatUserIDs.firstIndex(of: userID) {
+                    chatUserIDs.remove(at: index)
+                    
+                    // Listeyi güncelle
+                    chatUsersRef.setData(["chat_users": chatUserIDs]) { error in
+                        if let error = error {
+                            print("Sohbet kullanıcıları güncellenemedi: \(error.localizedDescription)")
+                        } else {
+                            print("Kullanıcı sohbet listesinden çıkarıldı: \(userID)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Kullanıcı arama
+    func filterUsers(with searchText: String) {
+        let baseList = segmentedControl.selectedSegmentIndex == 0 ? chatUsers : users
+        
+        if searchText.isEmpty {
+            filteredUsers = baseList
+        } else {
+            filteredUsers = baseList.filter {
+                $0.username.lowercased().contains(searchText.lowercased())
+            }
+        }
+    }
+    
     // MARK: - Search Bar Delegate
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        if searchText.isEmpty {
-            filteredUsers = users
-        } else {
-            filteredUsers = users.filter { $0.username.lowercased().contains(searchText.lowercased()) }
-        }
+        isSearchActive = !searchText.isEmpty
+        filterUsers(with: searchText)
         tableView.reloadData()
     }
     
@@ -146,7 +382,43 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         view.endEditing(true)
         
         let selectedUser = filteredUsers[indexPath.row]
+        
+        // Kullanıcıyı sohbet listesine ekle
+        addUserToChats(userID: selectedUser.uid)
+        
         openChat(with: selectedUser)
+    }
+    
+    // Kaydırmalı silme işlemi ekle
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        // Sadece sohbetler sekmesinde silme özelliği olsun
+        if segmentedControl.selectedSegmentIndex == 0 {
+            let deleteAction = UIContextualAction(style: .destructive, title: "Sil") { [weak self] (_, _, completionHandler) in
+                guard let self = self else { return }
+                
+                let userToRemove = self.filteredUsers[indexPath.row]
+                
+                // Kullanıcıyı sohbet listesinden çıkar
+                self.removeUserFromChats(userID: userToRemove.uid)
+                
+                // Yerel listeden de çıkar
+                if let index = self.chatUsers.firstIndex(where: { $0.uid == userToRemove.uid }) {
+                    self.chatUsers.remove(at: index)
+                }
+                
+                self.filteredUsers.remove(at: indexPath.row)
+                tableView.deleteRows(at: [indexPath], with: .automatic)
+                
+                completionHandler(true)
+            }
+            
+            deleteAction.image = UIImage(systemName: "trash")
+            
+            let configuration = UISwipeActionsConfiguration(actions: [deleteAction])
+            return configuration
+        }
+        
+        return nil
     }
     
     func openChat(with user: User) {
