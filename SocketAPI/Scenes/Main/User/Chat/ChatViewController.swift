@@ -66,9 +66,6 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             action: #selector(goBack)
         )
         
-        // Navigation bar ve status bar için Dark Mode ayarları
-        configureAppearance()
-        
         // Klavye bildirimlerini dinle
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -76,9 +73,6 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
-        // Navigation Controller'ı Dark Mode uyumlu yap
-        configureNavigationBar()
         
         // Ekran her göründüğünde mesajların sonuna kaydır
         let count = self.viewModel.messages.count
@@ -93,48 +87,6 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         NotificationCenter.default.removeObserver(self)
         // WebSocket bağlantısını kapat
         viewModel.disconnectSocket()
-    }
-    
-    // Dark Mode uyumlu görünüm ayarları
-    private func configureAppearance() {
-        // Status bar ayarları
-        if #available(iOS 13.0, *) {
-            let window = UIApplication.shared.windows.first
-            window?.overrideUserInterfaceStyle = .dark // Zorunlu dark mode
-        }
-        
-        // Navigation bar ayarları
-        configureNavigationBar()
-    }
-    
-    private func configureNavigationBar() {
-        if #available(iOS 13.0, *) {
-            // Navigation bar'ın arka plan ve metin rengi
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = .black
-            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-            
-            // Buton renkleri
-            appearance.buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.white]
-            
-            navigationController?.navigationBar.standardAppearance = appearance
-            navigationController?.navigationBar.scrollEdgeAppearance = appearance
-            navigationController?.navigationBar.compactAppearance = appearance
-            
-            // Navigation bar buton renkleri
-            navigationController?.navigationBar.tintColor = .white
-        } else {
-            // iOS 13 öncesi için
-            navigationController?.navigationBar.barTintColor = .black
-            navigationController?.navigationBar.tintColor = .white
-            navigationController?.navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
-            navigationController?.navigationBar.isTranslucent = false
-        }
-        
-        // Status bar stil
-        navigationController?.navigationBar.barStyle = .black
     }
     
     @objc func clearChat() {
@@ -180,11 +132,13 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     }
     
     private func setupUI() {
-        // Dark Mode renkleri ayarla
+        // Sistem moduna göre renkleri ayarla
         if #available(iOS 13.0, *) {
-            view.backgroundColor = .systemBackground // Dark Mode uyumlu arka plan
+            // Sistem modunu takip et
+            view.backgroundColor = .systemBackground
         } else {
-            view.backgroundColor = .black // iOS 13 öncesi için siyah arka plan
+            // iOS 13 öncesi için
+            view.backgroundColor = .white
         }
         
         // TableView ayarları
@@ -204,7 +158,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         if #available(iOS 13.0, *) {
             inputContainer.backgroundColor = .systemBackground
         } else {
-            inputContainer.backgroundColor = .black
+            inputContainer.backgroundColor = .white
         }
         view.addSubview(inputContainer)
         
@@ -218,8 +172,8 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             messageInputField.backgroundColor = .secondarySystemBackground
             messageInputField.textColor = .label
         } else {
-            messageInputField.backgroundColor = .darkGray
-            messageInputField.textColor = .white
+            messageInputField.backgroundColor = .lightGray
+            messageInputField.textColor = .black
         }
         inputContainer.addSubview(messageInputField)
         
@@ -431,31 +385,27 @@ class MessageTableViewCell: UITableViewCell {
         
         // Kullanıcıya göre baloncuk rengini ve konumunu ayarla
         if isFromCurrentUser {
-            // Dark Mode uyumlu renkler
+            // Sistem moduna göre renkler
             if #available(iOS 13.0, *) {
                 bubbleView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.3)
                 messageLabel.textColor = .label
             } else {
                 bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.6, blue: 0.0, alpha: 0.3)
-                messageLabel.textColor = .white
+                messageLabel.textColor = .black
             }
             
-            leadingConstraint?.constant = 60
-            trailingConstraint?.constant = -16
-            leadingConstraint?.isActive = true
             trailingConstraint?.isActive = true
+            leadingConstraint?.isActive = false
         } else {
-            // Dark Mode uyumlu renkler
+            // Sistem moduna göre renkler
             if #available(iOS 13.0, *) {
                 bubbleView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.3)
                 messageLabel.textColor = .label
             } else {
                 bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.0, blue: 0.8, alpha: 0.3)
-                messageLabel.textColor = .white
+                messageLabel.textColor = .black
             }
             
-            leadingConstraint?.constant = 16
-            trailingConstraint?.constant = -60
             leadingConstraint?.isActive = true
             trailingConstraint?.isActive = false
         }
