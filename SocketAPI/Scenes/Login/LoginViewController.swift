@@ -16,9 +16,9 @@ class LoginViewController: UIViewController {
         return label
     }()
     
-    let emailTextField: UITextField = {
+    let emailOrUsernameTextField: UITextField = {
         let textField = UITextField()
-        textField.placeholder = "Email"
+        textField.placeholder = "Email veya Kullanıcı Adı"
         textField.borderStyle = .roundedRect
         textField.layer.cornerRadius = 10
         textField.layer.borderWidth = 1
@@ -39,19 +39,6 @@ class LoginViewController: UIViewController {
         textField.autocapitalizationType = .none
         textField.autocorrectionType = .no
         textField.isSecureTextEntry = true
-        textField.paddingLeft(10)
-        return textField
-    }()
-    
-    let nameTextField: UITextField = {
-        let textField = UITextField()
-        textField.placeholder = "Adınız"
-        textField.borderStyle = .roundedRect
-        textField.layer.cornerRadius = 10
-        textField.layer.borderWidth = 1
-        textField.layer.borderColor = UIColor.lightGray.cgColor
-        textField.autocapitalizationType = .none
-        textField.autocorrectionType = .no
         textField.paddingLeft(10)
         return textField
     }()
@@ -85,7 +72,7 @@ class LoginViewController: UIViewController {
     }
     
     func setupUI() {
-        let stackView = UIStackView(arrangedSubviews: [nameTextField, emailTextField, passwordTextField, loginButton, registerButton])
+        let stackView = UIStackView(arrangedSubviews: [emailOrUsernameTextField, passwordTextField, loginButton, registerButton])
         stackView.axis = .vertical
         stackView.spacing = 20
         stackView.translatesAutoresizingMaskIntoConstraints = false
@@ -119,14 +106,16 @@ class LoginViewController: UIViewController {
     }
     
     @objc func loginTapped() {
-        guard let name = nameTextField.text, let email = emailTextField.text, let password = passwordTextField.text, !name.isEmpty, !email.isEmpty, !password.isEmpty else {
-            hataMesaji(titleInput: "Hata!", messageInput: "İsim, Email ve Şifre Giriniz")
+        guard let emailOrUsername = emailOrUsernameTextField.text,
+              let password = passwordTextField.text,
+              !emailOrUsername.isEmpty,
+              !password.isEmpty else {
+            hataMesaji(titleInput: "Hata!", messageInput: "Email/Kullanıcı Adı ve Şifre Giriniz")
             return
         }
         
-        // Burada viewModel.login fonksiyonunu çağırıyoruz.
-        // Eğer viewModel'deki login fonksiyonu closure kabul ediyorsa, burayı aşağıdaki şekilde kullanabiliriz:
-        viewModel.login(email: email, password: password)
+        // Güncellenen login metodunu çağır
+        viewModel.login(emailOrUsername: emailOrUsername, password: password)
         
         // onLoginSuccess callback'ini dinliyoruz:
         viewModel.onLoginSuccess = {
@@ -142,42 +131,13 @@ class LoginViewController: UIViewController {
             }
         }
     }
-
-
     
     @objc func registerTapped() {
-        guard let name = nameTextField.text,
-              let email = emailTextField.text,
-              let password = passwordTextField.text,
-              !name.isEmpty, !email.isEmpty, !password.isEmpty else {
-            hataMesaji(titleInput: "Hata!", messageInput: "İsim, Email ve Şifre Giriniz")
-            return
-        }
-        
-        viewModel.register(name: name, email: email, password: password) { success in
-            DispatchQueue.main.async {
-                if success {
-                    let alert = UIAlertController(title: "Başarılı",
-                                                  message: "Kayıt işlemi başarıyla tamamlandı!",
-                                                  preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "Tamam", style: .default) { _ in
-                        // Kullanıcı başarılı kayıt olduktan sonra UsersViewController'a yönlendir
-                        let usersVC = SplashScreenViewController()
-                        let navController = UINavigationController(rootViewController: usersVC)
-                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                           let window = windowScene.windows.first{
-                            window.rootViewController = navController
-                            window.makeKeyAndVisible()
-                        }
-                    })
-                    self.present(alert, animated: true, completion: nil)
-                } else {
-                    self.hataMesaji(titleInput: "Hata!", messageInput: "Kayıt sırasında bir hata oluştu.")
-                }
-            }
-        }
+        // Yeni Register ekranını aç
+        let registerVC = RegisterViewController()
+        registerVC.modalPresentationStyle = .fullScreen
+        present(registerVC, animated: true)
     }
-
     
     func hataMesaji(titleInput: String, messageInput: String) {
         let alert = UIAlertController(title: titleInput, message: messageInput, preferredStyle: .alert)
