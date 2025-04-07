@@ -91,8 +91,10 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                 let name = data["name"] as? String ?? "Bilinmeyen"
                 let email = data["email"] as? String ?? "Bilinmeyen"
                 let uid = data["uid"] as? String ?? ""
+                let username = data["username"] as? String ?? "Bilinmeyen"
+
                 
-                let user = User(uid: uid, name: name, email: email)
+                let user = User(uid: uid, name: name, email: email, username: username)
                 users.append(user)
             }
             
@@ -105,7 +107,7 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         if searchText.isEmpty {
             filteredUsers = users
         } else {
-            filteredUsers = users.filter { $0.name.lowercased().contains(searchText.lowercased()) }
+            filteredUsers = users.filter { $0.username.lowercased().contains(searchText.lowercased()) }
         }
         tableView.reloadData()
     }
@@ -155,6 +157,7 @@ struct User {
     let uid: String
     let name: String
     let email: String
+    let username: String
 }
 
 // Custom TableViewCell
