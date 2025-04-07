@@ -66,6 +66,9 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             action: #selector(goBack)
         )
         
+        // Navigation bar ve status bar için Dark Mode ayarları
+        configureAppearance()
+        
         // Klavye bildirimlerini dinle
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -73,6 +76,9 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        // Navigation Controller'ı Dark Mode uyumlu yap
+        configureNavigationBar()
         
         // Ekran her göründüğünde mesajların sonuna kaydır
         let count = self.viewModel.messages.count
@@ -87,6 +93,48 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         NotificationCenter.default.removeObserver(self)
         // WebSocket bağlantısını kapat
         viewModel.disconnectSocket()
+    }
+    
+    // Dark Mode uyumlu görünüm ayarları
+    private func configureAppearance() {
+        // Status bar ayarları
+        if #available(iOS 13.0, *) {
+            let window = UIApplication.shared.windows.first
+            window?.overrideUserInterfaceStyle = .dark // Zorunlu dark mode
+        }
+        
+        // Navigation bar ayarları
+        configureNavigationBar()
+    }
+    
+    private func configureNavigationBar() {
+        if #available(iOS 13.0, *) {
+            // Navigation bar'ın arka plan ve metin rengi
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = .black
+            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+            
+            // Buton renkleri
+            appearance.buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor.white]
+            
+            navigationController?.navigationBar.standardAppearance = appearance
+            navigationController?.navigationBar.scrollEdgeAppearance = appearance
+            navigationController?.navigationBar.compactAppearance = appearance
+            
+            // Navigation bar buton renkleri
+            navigationController?.navigationBar.tintColor = .white
+        } else {
+            // iOS 13 öncesi için
+            navigationController?.navigationBar.barTintColor = .black
+            navigationController?.navigationBar.tintColor = .white
+            navigationController?.navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
+            navigationController?.navigationBar.isTranslucent = false
+        }
+        
+        // Status bar stil
+        navigationController?.navigationBar.barStyle = .black
     }
     
     @objc func clearChat() {
@@ -132,7 +180,12 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     }
     
     private func setupUI() {
-        view.backgroundColor = .white
+        // Dark Mode renkleri ayarla
+        if #available(iOS 13.0, *) {
+            view.backgroundColor = .systemBackground // Dark Mode uyumlu arka plan
+        } else {
+            view.backgroundColor = .black // iOS 13 öncesi için siyah arka plan
+        }
         
         // TableView ayarları
         tableView.delegate = self
@@ -140,6 +193,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.allowsSelection = true
         tableView.keyboardDismissMode = .interactive // Önemli: Sürükleme ile klavyeyi kapatma
+        tableView.backgroundColor = .clear // Arka planı şeffaf yap
         view.addSubview(tableView)
         
         // Hücreleri kaydır
@@ -147,7 +201,11 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         
         // Input container ayarları
         inputContainer.translatesAutoresizingMaskIntoConstraints = false
-        inputContainer.backgroundColor = .systemBackground
+        if #available(iOS 13.0, *) {
+            inputContainer.backgroundColor = .systemBackground
+        } else {
+            inputContainer.backgroundColor = .black
+        }
         view.addSubview(inputContainer)
         
         // Mesaj giriş alanı
@@ -156,11 +214,18 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         messageInputField.placeholder = "Mesajınızı yazın..."
         messageInputField.translatesAutoresizingMaskIntoConstraints = false
         messageInputField.autocorrectionType = .no
+        if #available(iOS 13.0, *) {
+            messageInputField.backgroundColor = .secondarySystemBackground
+            messageInputField.textColor = .label
+        } else {
+            messageInputField.backgroundColor = .darkGray
+            messageInputField.textColor = .white
+        }
         inputContainer.addSubview(messageInputField)
         
         // Gönder butonu
         sendButton.setTitle("Gönder", for: .normal)
-        sendButton.backgroundColor = .blue
+        sendButton.backgroundColor = .systemBlue
         sendButton.layer.cornerRadius = 5
         sendButton.addTarget(self, action: #selector(sendMessage), for: .touchUpInside)
         sendButton.translatesAutoresizingMaskIntoConstraints = false
@@ -304,6 +369,7 @@ class MessageTableViewCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
+        backgroundColor = .clear // Hücre arka planını şeffaf yap
         
         // Baloncuk görünümü
         bubbleView.layer.cornerRadius = 12
@@ -332,6 +398,29 @@ class MessageTableViewCell: UITableViewCell {
         trailingConstraint = bubbleView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
     }
     
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if #available(iOS 13.0, *) {
+            if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+                // Renk modu değiştiğinde UI'yi güncelle
+                if let text = messageLabel.text, let isFromCurrentUser = isCurrentUserMessage() {
+                    configure(with: text, isFromCurrentUser: isFromCurrentUser)
+                }
+            }
+        }
+    }
+    
+    // Mevcut mesajın kimden geldiğini tahmin et
+    private func isCurrentUserMessage() -> Bool? {
+        // Eğer mesaj sağda ise kullanıcıdan gelmiştir
+        if trailingConstraint?.isActive == true {
+            return true
+        } else if leadingConstraint?.isActive == true && trailingConstraint?.isActive == false {
+            return false
+        }
+        return nil
+    }
     
     func configure(with message: String, isFromCurrentUser: Bool) {
         messageLabel.text = message
@@ -342,13 +431,29 @@ class MessageTableViewCell: UITableViewCell {
         
         // Kullanıcıya göre baloncuk rengini ve konumunu ayarla
         if isFromCurrentUser {
-            bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.6, blue: 0.0, alpha: 0.2)
+            // Dark Mode uyumlu renkler
+            if #available(iOS 13.0, *) {
+                bubbleView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.3)
+                messageLabel.textColor = .label
+            } else {
+                bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.6, blue: 0.0, alpha: 0.3)
+                messageLabel.textColor = .white
+            }
+            
             leadingConstraint?.constant = 60
             trailingConstraint?.constant = -16
             leadingConstraint?.isActive = true
             trailingConstraint?.isActive = true
         } else {
-            bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.0, blue: 0.8, alpha: 0.2)
+            // Dark Mode uyumlu renkler
+            if #available(iOS 13.0, *) {
+                bubbleView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.3)
+                messageLabel.textColor = .label
+            } else {
+                bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.0, blue: 0.8, alpha: 0.3)
+                messageLabel.textColor = .white
+            }
+            
             leadingConstraint?.constant = 16
             trailingConstraint?.constant = -60
             leadingConstraint?.isActive = true
