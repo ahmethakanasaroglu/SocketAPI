@@ -53,7 +53,7 @@ class ProfileViewController: UIViewController {
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.borderStyle = .roundedRect
         textField.isUserInteractionEnabled = false
-        textField.placeholder = "İsim"
+        textField.placeholder = "İsim - Soyisim"
         return textField
     }()
     
@@ -287,7 +287,7 @@ class ProfileViewController: UIViewController {
         ])
         
         // Her alan için bir görünüm oluştur
-        let nameField = createFieldGroup(label: "İsim:", textField: nameTextField, button: changeNameButton)
+        let nameField = createFieldGroup(label: "İsim - Soyisim:", textField: nameTextField, button: changeNameButton)
         let usernameField = createFieldGroup(label: "Kullanıcı Adı:", textField: usernameTextField, button: changeUsernameButton)
         let ageField = createFieldGroup(label: "Yaş:", textField: ageTextField, button: changeAgeButton)
         let cityField = createFieldGroup(label: "Şehir:", textField: cityTextField, button: changeCityButton)

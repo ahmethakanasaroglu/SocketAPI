@@ -18,7 +18,7 @@ class RegisterViewController: UIViewController {
     
     private let nameTextField: UITextField = {
         let textField = UITextField()
-        textField.placeholder = "Adınız"
+        textField.placeholder = "Adınız - Soyadınız"
         textField.borderStyle = .roundedRect
         textField.layer.cornerRadius = 10
         textField.layer.borderWidth = 1
@@ -88,6 +88,7 @@ class RegisterViewController: UIViewController {
         textField.layer.borderWidth = 1
         textField.layer.borderColor = UIColor.lightGray.cgColor
         textField.autocapitalizationType = .words
+        textField.autocorrectionType = .no
         textField.paddingLeft(10)
         return textField
     }()
@@ -246,80 +247,130 @@ class RegisterViewController: UIViewController {
         // Önce tüm alanları normal border'a çevir
         resetFieldBorders()
         
-        // Tüm alanların dolu olup olmadığını kontrol et
-        let validationResult = viewModel.validateFields(
-            name: nameTextField.text,
-            username: usernameTextField.text,
-            email: emailTextField.text,
-            password: passwordTextField.text,
-            age: ageTextField.text,
-            city: cityTextField.text
-        )
+        // Boş alan kontrollerini yap
+        var emptyFields: [String] = []
+        var formatErrors: [(field: String, message: String)] = []
         
-        if !validationResult.isValid {
-            // Format hataları varsa
-            if !validationResult.errors.isEmpty {
-                var errorMessages = ""
-                
-                // Her hata için ilgili alanı kırmızı yap ve hata mesajını ekle
-                for (field, message) in validationResult.errors {
-                    if field == "name" {
-                        highlightFieldError(textField: nameTextField)
-                        errorMessages += "- \(message)\n"
-                    }
-                    if field == "age" {
-                        highlightFieldError(textField: ageTextField)
-                        errorMessages += "- \(message)\n"
-                    }
-                    if field == "city" {
-                        highlightFieldError(textField: cityTextField)
-                        errorMessages += "- \(message)\n"
-                    }
-                }
-                
-                hataMesaji(titleInput: "Format Hatası", messageInput: errorMessages)
-                return
+        // Adınız-Soyadınız kontrolü
+        if let name = nameTextField.text, !name.isEmpty {
+            // İsim sadece harflerden ve boşluklardan oluşmalı
+            let nonSpaceCharacters = name.filter { !$0.isWhitespace }
+            
+            // 1. Boşluk hariç en az 6 karakter olmalı
+            if nonSpaceCharacters.count < 6 || name.count < 7 {
+                formatErrors.append((field: "name", message: "Adınız ve Soyadınız boşluk hariç en az 6 karakter olmalıdır"))
+                highlightFieldError(textField: nameTextField)
             }
             
-            // Boş alan hataları varsa
-            if !validationResult.emptyFields.isEmpty {
-                // Boş alanları kırmızı yap
-                if validationResult.emptyFields.contains("Adınız") {
-                    highlightFieldError(textField: nameTextField)
-                }
-                if validationResult.emptyFields.contains("Kullanıcı Adı") {
-                    highlightFieldError(textField: usernameTextField)
-                }
-                if validationResult.emptyFields.contains("Email") {
-                    highlightFieldError(textField: emailTextField)
-                }
-                if validationResult.emptyFields.contains("Şifre") {
-                    highlightFieldError(textField: passwordTextField)
-                }
-                if validationResult.emptyFields.contains("Yaş") {
-                    highlightFieldError(textField: ageTextField)
-                }
-                if validationResult.emptyFields.contains("Şehir") {
-                    highlightFieldError(textField: cityTextField)
-                }
-                
-                let errorMessage = "Lütfen aşağıdaki alanları doldurun:\n- " + validationResult.emptyFields.joined(separator: "\n- ")
-                hataMesaji(titleInput: "Eksik Bilgiler", messageInput: errorMessage)
-                return
+            // 2. İsim sadece harflerden oluşmalı
+            let allowedCharacterSet = CharacterSet.letters.union(CharacterSet.whitespaces)
+            if name.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
+                formatErrors.append((field: "name", message: "Adınız ve Soyadınız sadece harflerden oluşmalıdır"))
+                highlightFieldError(textField: nameTextField)
+            }
+        } else {
+            emptyFields.append("Adınız - Soyadınız")
+            highlightFieldError(textField: nameTextField)
+        }
+        
+        // Kullanıcı adı kontrolü
+        if let username = usernameTextField.text, username.isEmpty {
+            emptyFields.append("Kullanıcı Adı")
+            highlightFieldError(textField: usernameTextField)
+        }
+        
+        // Email kontrolü
+        if let email = emailTextField.text, email.isEmpty {
+            emptyFields.append("Email")
+            highlightFieldError(textField: emailTextField)
+        } else if let email = emailTextField.text, !email.isEmpty {
+            // Basit bir email formatı kontrolü
+            if !email.contains("@") || !email.contains(".") {
+                formatErrors.append((field: "email", message: "Geçerli bir email adresi girin"))
+                highlightFieldError(textField: emailTextField)
             }
         }
         
-        guard let ageText = ageTextField.text, viewModel.validateAge(ageText), let age = Int(ageText) else {
+        // Şifre kontrolü
+        if let password = passwordTextField.text, password.isEmpty {
+            emptyFields.append("Şifre")
+            highlightFieldError(textField: passwordTextField)
+        } else if let password = passwordTextField.text, !password.isEmpty && password.count < 6 {
+            formatErrors.append((field: "password", message: "Şifre en az 6 karakter olmalıdır"))
+            highlightFieldError(textField: passwordTextField)
+        }
+        
+        // Yaş kontrolü
+        if let age = ageTextField.text, age.isEmpty {
+            emptyFields.append("Yaş")
             highlightFieldError(textField: ageTextField)
-            hataMesaji(titleInput: "Geçersiz Yaş", messageInput: "Lütfen yaş için geçerli bir sayı girin.")
+        } else if let age = ageTextField.text, !age.isEmpty {
+            // Yaş sadece rakamlardan oluşmalı
+            if Int(age) == nil {
+                formatErrors.append((field: "age", message: "Yaş sadece rakamlardan oluşmalıdır"))
+                highlightFieldError(textField: ageTextField)
+            } else if age.count > 3 {
+                // En fazla 3 basamaklı olabilir
+                formatErrors.append((field: "age", message: "Yaş en fazla 3 basamaklı olabilir"))
+                highlightFieldError(textField: ageTextField)
+            } else if let ageInt = Int(age) {
+                // 1-999 arasında değer olmalı
+                if ageInt < 1 || ageInt > 999 {
+                    formatErrors.append((field: "age", message: "Yaş 1-999 arasında olmalıdır"))
+                    highlightFieldError(textField: ageTextField)
+                }
+            }
+        }
+        
+        // Şehir kontrolü
+        if let city = cityTextField.text, city.isEmpty {
+            emptyFields.append("Şehir")
+            highlightFieldError(textField: cityTextField)
+        } else if let city = cityTextField.text, !city.isEmpty {
+            // Şehir sadece harflerden oluşmalı
+            let allowedCharacterSet = CharacterSet.letters.union(CharacterSet.whitespaces)
+            if city.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
+                formatErrors.append((field: "city", message: "Şehir sadece harflerden oluşmalıdır"))
+                highlightFieldError(textField: cityTextField)
+            }
+            
+            // Şehir en az 3 karakter olmalı
+            if city.count < 3 {
+                formatErrors.append((field: "city", message: "Şehir en az 3 karakter olmalıdır"))
+                highlightFieldError(textField: cityTextField)
+            }
+        }
+        
+        // Herhangi bir hata varsa kullanıcıyı bilgilendir
+        if !emptyFields.isEmpty || !formatErrors.isEmpty {
+            var errorMessage = ""
+            
+            // Boş alan hataları varsa
+            if !emptyFields.isEmpty {
+                errorMessage += "Lütfen aşağıdaki alanları doldurun:\n- " + emptyFields.joined(separator: "\n- ")
+            }
+            
+            // Format hataları varsa
+            if !formatErrors.isEmpty {
+                if !errorMessage.isEmpty {
+                    errorMessage += "\n\n"
+                }
+                errorMessage += "Format hataları:\n"
+                for error in formatErrors {
+                    errorMessage += "- \(error.message)\n"
+                }
+            }
+            
+            hataMesaji(titleInput: "Hata", messageInput: errorMessage)
             return
         }
         
-        // Unwrap diğer alanları (validasyon geçtiği için güvenle unwrap edebiliriz)
+        // Tüm kontroller geçildiyse, kayıt işlemini yap
         guard let name = nameTextField.text,
               let username = usernameTextField.text,
               let email = emailTextField.text,
               let password = passwordTextField.text,
+              let ageText = ageTextField.text, let age = Int(ageText),
               let city = cityTextField.text else {
             return
         }
