@@ -32,6 +32,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         // Başlangıçta "Sohbetler" sekmesini seç
         segmentedControl.selectedSegmentIndex = 0
         segmentChanged(segmentedControl)
+        
+        // Mesaj dinleyicisini ekle
+        setupMessageListener()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -58,6 +61,34 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                 }
             }
         }
+    }
+    
+    // Mesaj dinleyicisi ekleyelim (yeni eklenen)
+    func setupMessageListener() {
+        guard !currentUserID.isEmpty else { return }
+        
+        let db = Firestore.firestore()
+        
+        // Kullanıcının kanallarını dinle
+        db.collection("messages")
+            .whereField("receiverId", isEqualTo: currentUserID)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self, let snapshot = snapshot else {
+                    print("Mesaj dinleyicisi hatası: \(error?.localizedDescription ?? "Bilinmeyen hata")")
+                    return
+                }
+                
+                // Yeni mesajlar için kontrol et
+                for change in snapshot.documentChanges {
+                    if change.type == .added {
+                        let data = change.document.data()
+                        if let senderId = data["senderId"] as? String {
+                            // Yeni mesaj geldiğinde göndereni sohbet listesine ekle
+                            self.addUserToBothChatLists(currentUserID: self.currentUserID, otherUserID: senderId)
+                        }
+                    }
+                }
+            }
     }
     
     func setupUI() {
@@ -303,6 +334,78 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         }
     }
     
+    // YENİ EKLENEN: Her iki kullanıcıyı da sohbet listelerine ekle
+    func addUserToBothChatLists(currentUserID: String, otherUserID: String) {
+        let db = Firestore.firestore()
+        
+        // 1. Mevcut kullanıcının listesine diğer kullanıcıyı ekle
+        let currentUserChatRef = db.collection("chat_users").document(currentUserID)
+        
+        currentUserChatRef.getDocument { snapshot, error in
+            if let error = error {
+                print("Sohbet kullanıcıları alınamadı: \(error.localizedDescription)")
+                return
+            }
+            
+            var currentUserChatList: [String] = []
+            
+            if let snapshot = snapshot, snapshot.exists, let data = snapshot.data(),
+               let existingUsers = data["chat_users"] as? [String] {
+                currentUserChatList = existingUsers
+            }
+            
+            // Kullanıcı zaten listede mi kontrol et
+            if !currentUserChatList.contains(otherUserID) {
+                currentUserChatList.append(otherUserID)
+                
+                // Listeyi güncelle
+                currentUserChatRef.setData(["chat_users": currentUserChatList]) { error in
+                    if let error = error {
+                        print("Sohbet kullanıcıları güncellenemedi: \(error.localizedDescription)")
+                    } else {
+                        print("Kullanıcı sohbet listesine eklendi: \(otherUserID)")
+                        
+                        // Sohbet listesini güncelledikten sonra UI güncellemesi yap
+                        DispatchQueue.main.async {
+                            self.refreshUserList()
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 2. Diğer kullanıcının listesine mevcut kullanıcıyı ekle
+        let otherUserChatRef = db.collection("chat_users").document(otherUserID)
+        
+        otherUserChatRef.getDocument { snapshot, error in
+            if let error = error {
+                print("Sohbet kullanıcıları alınamadı: \(error.localizedDescription)")
+                return
+            }
+            
+            var otherUserChatList: [String] = []
+            
+            if let snapshot = snapshot, snapshot.exists, let data = snapshot.data(),
+               let existingUsers = data["chat_users"] as? [String] {
+                otherUserChatList = existingUsers
+            }
+            
+            // Kullanıcı zaten listede mi kontrol et
+            if !otherUserChatList.contains(currentUserID) {
+                otherUserChatList.append(currentUserID)
+                
+                // Listeyi güncelle
+                otherUserChatRef.setData(["chat_users": otherUserChatList]) { error in
+                    if let error = error {
+                        print("Sohbet kullanıcıları güncellenemedi: \(error.localizedDescription)")
+                    } else {
+                        print("Karşı kullanıcının sohbet listesine eklendi: \(currentUserID)")
+                    }
+                }
+            }
+        }
+    }
+    
     // Kullanıcıyı sohbet listesinden çıkar
     func removeUserFromChats(userID: String) {
         guard !currentUserID.isEmpty else { return }
@@ -383,8 +486,10 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         
         let selectedUser = filteredUsers[indexPath.row]
         
-        // Kullanıcıyı sohbet listesine ekle
-        addUserToChats(userID: selectedUser.uid)
+        // İki kullanıcıyı da birbirinin sohbet listesine ekle
+        if let currentUser = Auth.auth().currentUser {
+            addUserToBothChatLists(currentUserID: currentUser.uid, otherUserID: selectedUser.uid)
+        }
         
         openChat(with: selectedUser)
     }
