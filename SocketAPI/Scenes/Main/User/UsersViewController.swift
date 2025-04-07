@@ -13,6 +13,7 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         super.viewDidLoad()
         setupUI()
         setupTableView()
+        setupTapGesture() // Klavyeyi kapatmak için dokunma jesti ekle
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -40,6 +41,17 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         tableView.tableHeaderView = searchBar // Arama çubuğunu başlık olarak ekledik
     }
     
+    // Ekrana dokunma jesti ekleyerek klavyeyi kapatma
+    func setupTapGesture() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false // Diğer dokunma işlemlerini engelleme
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    // Klavyeyi kapatma methodu
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
+    }
     
     func setupTableView() {
         view.addSubview(tableView)
@@ -112,6 +124,11 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         tableView.reloadData()
     }
     
+    // Arama yapılırken Search butonuna basıldığında klavyeyi kapat
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
+    }
+    
     // MARK: - TableView Delegates
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return filteredUsers.count
@@ -125,6 +142,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        // Hücreye tıklandığında klavyeyi kapat
+        view.endEditing(true)
+        
         let selectedUser = filteredUsers[indexPath.row]
         openChat(with: selectedUser)
     }
