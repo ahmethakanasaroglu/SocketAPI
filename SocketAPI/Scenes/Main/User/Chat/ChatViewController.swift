@@ -9,7 +9,11 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     var selectedUser: User? // Kullanıcı buraya atanacak
     var channelId: String = "" // Eklediğimiz yeni özellik
     var currentUserID: String = ""
-
+    
+    // Klavye yüksekliğine göre güncellenen constraint
+    private var inputContainerBottomConstraint: NSLayoutConstraint!
+    private let inputContainer = UIView() // Input field ve buton için container
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         title = selectedUser?.name
@@ -61,7 +65,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             target: self,
             action: #selector(goBack)
         )
-
+        
         // Klavye bildirimlerini dinle
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
@@ -77,7 +81,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
         }
     }
-
+    
     deinit {
         // Bildirimleri kaldır
         NotificationCenter.default.removeObserver(self)
@@ -117,7 +121,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         
         present(alertController, animated: true)
     }
-
+    
     @objc func goBack() {
         let usersVC = MainTabBarController()
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -129,93 +133,128 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     
     private func setupUI() {
         view.backgroundColor = .white
-
+        
+        // TableView ayarları
         tableView.delegate = self
         tableView.dataSource = self
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.allowsSelection = true  // Mesajları seçilebilir yap
+        tableView.allowsSelection = true
+        tableView.keyboardDismissMode = .interactive // Önemli: Sürükleme ile klavyeyi kapatma
         view.addSubview(tableView)
         
         // Hücreleri kaydır
         tableView.register(MessageTableViewCell.self, forCellReuseIdentifier: "messageCell")
-
-        messageInputField.delegate = self // Set the delegate for the text field
+        
+        // Input container ayarları
+        inputContainer.translatesAutoresizingMaskIntoConstraints = false
+        inputContainer.backgroundColor = .systemBackground
+        view.addSubview(inputContainer)
+        
+        // Mesaj giriş alanı
+        messageInputField.delegate = self
         messageInputField.borderStyle = .roundedRect
         messageInputField.placeholder = "Mesajınızı yazın..."
         messageInputField.translatesAutoresizingMaskIntoConstraints = false
         messageInputField.autocorrectionType = .no
-        view.addSubview(messageInputField)
-
+        inputContainer.addSubview(messageInputField)
+        
+        // Gönder butonu
         sendButton.setTitle("Gönder", for: .normal)
         sendButton.backgroundColor = .blue
         sendButton.layer.cornerRadius = 5
         sendButton.addTarget(self, action: #selector(sendMessage), for: .touchUpInside)
         sendButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(sendButton)
-
+        inputContainer.addSubview(sendButton)
+        
+        // Constraint'leri ayarla
+        inputContainerBottomConstraint = inputContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        
         NSLayoutConstraint.activate([
+            // TableView constraints
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: messageInputField.topAnchor, constant: -10),
-
-            messageInputField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            messageInputField.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10),
+            tableView.bottomAnchor.constraint(equalTo: inputContainer.topAnchor),
+            
+            // Input container constraints
+            inputContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            inputContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            inputContainerBottomConstraint,
+            inputContainer.heightAnchor.constraint(equalToConstant: 60),
+            
+            // Input field constraints
+            messageInputField.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor, constant: 10),
+            messageInputField.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
             messageInputField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -10),
             messageInputField.heightAnchor.constraint(equalToConstant: 40),
-
-            sendButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            sendButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10),
+            
+            // Send button constraints
+            sendButton.trailingAnchor.constraint(equalTo: inputContainer.trailingAnchor, constant: -10),
+            sendButton.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 80),
             sendButton.heightAnchor.constraint(equalToConstant: 40)
         ])
     }
-
+    
     private func setupGestures() {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false // TableView seçimlerini engellemez
         view.addGestureRecognizer(tapGesture)
     }
-
+    
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
-
+    
     @objc private func sendMessage() {
         guard let text = messageInputField.text, !text.isEmpty else { return }
         viewModel.sendMessage(text)
         messageInputField.text = ""
     }
-
+    
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         sendMessage()
         return true
     }
-
-    // Klavye açıldığında ekranı yukarı kaydır
+    
+    // Klavye açıldığında input container'ı yukarı kaydır
     @objc private func keyboardWillShow(notification: Notification) {
-        if let userInfo = notification.userInfo,
-           let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+        if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
             let keyboardHeight = keyboardFrame.height
-
-            // Görünümün alt kısmını kaydır
+            
+            // Input container'ı klavye üzerine taşı
+            inputContainerBottomConstraint.constant = -keyboardHeight + view.safeAreaInsets.bottom
+            
+            // Animasyonlu bir şekilde güncelle
             UIView.animate(withDuration: 0.3) {
-                self.view.frame.origin.y = -keyboardHeight
+                self.view.layoutIfNeeded()
+                
+                // En son mesaja kaydır
+                let count = self.viewModel.messages.count
+                if count > 0 {
+                    let indexPath = IndexPath(row: count - 1, section: 0)
+                    self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: false)
+                }
             }
         }
     }
-
-    // Klavye kapandığında ekranı eski haline getir
+    
+    // Klavye kapandığında input container'ı eski haline getir
     @objc private func keyboardWillHide(notification: Notification) {
+        // Input container'ı orijinal konumuna geri getir
+        inputContainerBottomConstraint.constant = 0
+        
+        // Animasyonlu bir şekilde güncelle
         UIView.animate(withDuration: 0.3) {
-            self.view.frame.origin.y = 0
+            self.view.layoutIfNeeded()
         }
     }
-
+    
     // UITableView DataSource & Delegate
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return viewModel.messages.count
     }
-
+    
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "messageCell", for: indexPath) as! MessageTableViewCell
         let message = viewModel.messages[indexPath.row]
@@ -237,6 +276,13 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             }
             return UIMenu(title: "", children: [deleteAction])
         }
+    }
+    
+    // TableView'i dokunma ile kaydırabilir yap
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        // Mesaja tıklandığında klavyeyi kapat
+        dismissKeyboard()
     }
 }
 
