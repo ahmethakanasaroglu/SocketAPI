@@ -1,5 +1,6 @@
 import UIKit
 import FirebaseAuth
+import FirebaseFirestore
 
 class ChatViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
     private let viewModel = ChatViewModel()
@@ -9,6 +10,14 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     var selectedUser: User? // Kullanıcı buraya atanacak
     var channelId: String = "" // Eklediğimiz yeni özellik
     var currentUserID: String = ""
+    
+    // Emoji seçici için bileşenler
+    private let emojiButton = UIButton()
+    private let emojiPicker = UIView()
+    private var isEmojiPickerVisible = false
+    
+    // Sık kullanılan emojiler
+    private let popularEmojis = ["👍", "❤️", "😊", "😂", "🎉", "👏", "🙏", "😍", "👌", "😭"]
     
     // Klavye yüksekliğine göre güncellenen constraint
     private var inputContainerBottomConstraint: NSLayoutConstraint!
@@ -31,6 +40,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
         
         setupUI()
+        setupEmojiPicker()
         setupGestures()
         
         // Sağ üste "Temizle" butonunu ekle
@@ -162,6 +172,13 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
         view.addSubview(inputContainer)
         
+        // Emoji butonu
+        emojiButton.setTitle("😊", for: .normal)
+        emojiButton.titleLabel?.font = UIFont.systemFont(ofSize: 20)
+        emojiButton.addTarget(self, action: #selector(toggleEmojiPicker), for: .touchUpInside)
+        emojiButton.translatesAutoresizingMaskIntoConstraints = false
+        inputContainer.addSubview(emojiButton)
+        
         // Mesaj giriş alanı
         messageInputField.delegate = self
         messageInputField.borderStyle = .roundedRect
@@ -201,8 +218,14 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             inputContainerBottomConstraint,
             inputContainer.heightAnchor.constraint(equalToConstant: 60),
             
+            // Emoji button constraints
+            emojiButton.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor, constant: 10),
+            emojiButton.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
+            emojiButton.widthAnchor.constraint(equalToConstant: 40),
+            emojiButton.heightAnchor.constraint(equalToConstant: 40),
+            
             // Input field constraints
-            messageInputField.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor, constant: 10),
+            messageInputField.leadingAnchor.constraint(equalTo: emojiButton.trailingAnchor, constant: 5),
             messageInputField.centerYAnchor.constraint(equalTo: inputContainer.centerYAnchor),
             messageInputField.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -10),
             messageInputField.heightAnchor.constraint(equalToConstant: 40),
@@ -215,6 +238,74 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         ])
     }
     
+    private func setupEmojiPicker() {
+        // Emoji Picker ayarları
+        emojiPicker.translatesAutoresizingMaskIntoConstraints = false
+        if #available(iOS 13.0, *) {
+            emojiPicker.backgroundColor = .secondarySystemBackground
+        } else {
+            emojiPicker.backgroundColor = .lightGray
+        }
+        emojiPicker.layer.cornerRadius = 10
+        emojiPicker.layer.shadowColor = UIColor.black.cgColor
+        emojiPicker.layer.shadowOffset = CGSize(width: 0, height: 2)
+        emojiPicker.layer.shadowOpacity = 0.3
+        emojiPicker.layer.shadowRadius = 3
+        emojiPicker.isHidden = true
+        view.addSubview(emojiPicker)
+        
+        // Emoji Picker'ın konumunu ve boyutunu ayarla
+        NSLayoutConstraint.activate([
+            emojiPicker.bottomAnchor.constraint(equalTo: inputContainer.topAnchor, constant: -5),
+            emojiPicker.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
+            emojiPicker.heightAnchor.constraint(equalToConstant: 50),
+            emojiPicker.widthAnchor.constraint(equalToConstant: 330)
+        ])
+        
+        // Emojileri ekle
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.distribution = .fillEqually
+        stackView.alignment = .center
+        stackView.spacing = 5
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        emojiPicker.addSubview(stackView)
+        
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: emojiPicker.topAnchor, constant: 5),
+            stackView.leadingAnchor.constraint(equalTo: emojiPicker.leadingAnchor, constant: 10),
+            stackView.trailingAnchor.constraint(equalTo: emojiPicker.trailingAnchor, constant: -10),
+            stackView.bottomAnchor.constraint(equalTo: emojiPicker.bottomAnchor, constant: -5)
+        ])
+        
+        // Emojileri ekle
+        for emoji in popularEmojis {
+            let emojiButton = UIButton()
+            emojiButton.setTitle(emoji, for: .normal)
+            emojiButton.titleLabel?.font = UIFont.systemFont(ofSize: 24)
+            emojiButton.addTarget(self, action: #selector(emojiSelected(_:)), for: .touchUpInside)
+            stackView.addArrangedSubview(emojiButton)
+        }
+    }
+    
+    @objc func toggleEmojiPicker() {
+        isEmojiPickerVisible.toggle()
+        emojiPicker.isHidden = !isEmojiPickerVisible
+    }
+    
+    @objc func emojiSelected(_ sender: UIButton) {
+        guard let emoji = sender.title(for: .normal) else { return }
+        
+        if let currentText = messageInputField.text {
+            messageInputField.text = currentText + emoji
+        } else {
+            messageInputField.text = emoji
+        }
+        
+        // Emoji seçildiğinde picker'ı kapat
+        toggleEmojiPicker()
+    }
+    
     private func setupGestures() {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tapGesture.cancelsTouchesInView = false // TableView seçimlerini engellemez
@@ -223,6 +314,11 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     
     @objc private func dismissKeyboard() {
         view.endEditing(true)
+        
+        // Emoji picker'ı da kapat
+        if isEmojiPickerVisible {
+            toggleEmojiPicker()
+        }
     }
     
     @objc private func sendMessage() {
@@ -269,6 +365,15 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
     }
     
+    // Mesaj tarihini formatla
+    private func formatMessageTime(_ date: Date?) -> String {
+        guard let date = date else { return "" }
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+    
     // UITableView DataSource & Delegate
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return viewModel.messages.count
@@ -278,7 +383,13 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         let cell = tableView.dequeueReusableCell(withIdentifier: "messageCell", for: indexPath) as! MessageTableViewCell
         let message = viewModel.messages[indexPath.row]
         
-        cell.configure(with: message.displayText, isFromCurrentUser: message.isFromCurrentUser)
+        // Burada reaction parametresini de iletiyoruz
+        cell.configure(
+            with: message.text, // displayText değil, text kullanın
+            isFromCurrentUser: message.isFromCurrentUser,
+            timestamp: message.timestamp,
+            reaction: message.reaction // Tepki bilgisini ilet
+        )
         
         return cell
     }
@@ -287,13 +398,53 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         return UITableView.automaticDimension
     }
     
-    // Mesaj silme işlemi için context menu ekleyelim
+    // Mesaja tepki ekleme ve silme için context menu
     func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in
+            // Tepki ekleme aksiyonları
+            let emojiActions = self.popularEmojis.map { emoji in
+                UIAction(title: "Tepki: \(emoji)", image: nil) { [weak self] _ in
+                    guard let self = self else { return }
+                    
+                    let message = self.viewModel.messages[indexPath.row]
+                    
+                    // Aynı emoji varsa kaldır, yoksa ekle/değiştir
+                    if message.reaction == emoji {
+                        self.viewModel.setReaction(at: indexPath.row, reaction: nil)
+                    } else {
+                        self.viewModel.setReaction(at: indexPath.row, reaction: emoji)
+                    }
+                }
+            }
+            
+            // Silme aksiyonu
             let deleteAction = UIAction(title: "Sil", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
                 self?.viewModel.deleteMessage(at: indexPath.row)
             }
-            return UIMenu(title: "", children: [deleteAction])
+            
+            // Tepki kaldır seçeneği
+            let message = self.viewModel.messages[indexPath.row]
+            let menuItems: [UIMenuElement]
+            
+            // Tepki varsa kaldırma seçeneğini göster
+            if message.reaction != nil {
+                let removeReactionAction = UIAction(title: "Tepkiyi Kaldır", image: UIImage(systemName: "xmark.circle")) { [weak self] _ in
+                    self?.viewModel.setReaction(at: indexPath.row, reaction: nil)
+                }
+                
+                menuItems = [
+                    UIMenu(title: "Tepki Ekle", children: emojiActions),
+                    removeReactionAction,
+                    deleteAction
+                ]
+            } else {
+                menuItems = [
+                    UIMenu(title: "Tepki Ekle", children: emojiActions),
+                    deleteAction
+                ]
+            }
+            
+            return UIMenu(title: "", children: menuItems)
         }
     }
     
@@ -305,12 +456,22 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     }
 }
 
-// Mesaj hücresi
+// Mesaj hücresi - tepki ekleme desteği ile
 class MessageTableViewCell: UITableViewCell {
     private let messageLabel = UILabel()
     private let bubbleView = UIView()
+    private let timeLabel = UILabel()
+    
+    // Tepki görünümü
+    private let reactionView = UIView()
+    private let reactionLabel = UILabel()
+    
     private var leadingConstraint: NSLayoutConstraint?
     private var trailingConstraint: NSLayoutConstraint?
+    
+    // Tepki konumlandırma kısıtlamaları
+    private var reactionLeadingConstraint: NSLayoutConstraint?
+    private var reactionTrailingConstraint: NSLayoutConstraint?
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -323,7 +484,7 @@ class MessageTableViewCell: UITableViewCell {
     
     private func setupUI() {
         selectionStyle = .none
-        backgroundColor = .clear // Hücre arka planını şeffaf yap
+        backgroundColor = .clear
         
         // Baloncuk görünümü
         bubbleView.layer.cornerRadius = 12
@@ -335,21 +496,58 @@ class MessageTableViewCell: UITableViewCell {
         messageLabel.translatesAutoresizingMaskIntoConstraints = false
         bubbleView.addSubview(messageLabel)
         
+        // Zaman etiketi
+        timeLabel.font = UIFont.systemFont(ofSize: 10)
+        timeLabel.textColor = .gray
+        timeLabel.textAlignment = .right
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        bubbleView.addSubview(timeLabel)
+        
+        // Tepki görünümü
+        reactionView.backgroundColor = UIColor.systemGray5.withAlphaComponent(0.8)
+        reactionView.layer.cornerRadius = 14
+        reactionView.translatesAutoresizingMaskIntoConstraints = false
+        reactionView.isHidden = true // Başlangıçta gizli
+        contentView.addSubview(reactionView)
+        
+        // Tepki etiketi
+        reactionLabel.font = UIFont.systemFont(ofSize: 16)
+        reactionLabel.textAlignment = .center
+        reactionLabel.translatesAutoresizingMaskIntoConstraints = false
+        reactionView.addSubview(reactionLabel)
+        
         // Constraints
         NSLayoutConstraint.activate([
             messageLabel.topAnchor.constraint(equalTo: bubbleView.topAnchor, constant: 8),
             messageLabel.leadingAnchor.constraint(equalTo: bubbleView.leadingAnchor, constant: 8),
             messageLabel.trailingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: -8),
-            messageLabel.bottomAnchor.constraint(equalTo: bubbleView.bottomAnchor, constant: -8),
+            messageLabel.bottomAnchor.constraint(equalTo: timeLabel.topAnchor, constant: -4),
+            
+            timeLabel.trailingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: -8),
+            timeLabel.bottomAnchor.constraint(equalTo: bubbleView.bottomAnchor, constant: -4),
+            timeLabel.heightAnchor.constraint(equalToConstant: 12),
             
             bubbleView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             bubbleView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
-            bubbleView.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75)
+            bubbleView.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75),
+            
+            // Tepki görünümü constraints
+            reactionView.widthAnchor.constraint(equalToConstant: 28),
+            reactionView.heightAnchor.constraint(equalToConstant: 28),
+            reactionView.bottomAnchor.constraint(equalTo: bubbleView.bottomAnchor, constant: 5),
+            
+            // Tepki etiketi constraints
+            reactionLabel.centerXAnchor.constraint(equalTo: reactionView.centerXAnchor),
+            reactionLabel.centerYAnchor.constraint(equalTo: reactionView.centerYAnchor)
         ])
         
-        // Leading ve trailing constraint'leri ayrı ayrı tanımla
+        // Leading ve trailing constraint'leri tanımla
         leadingConstraint = bubbleView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16)
         trailingConstraint = bubbleView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+        
+        // Tepki constraint'leri tanımla
+        reactionLeadingConstraint = reactionView.trailingAnchor.constraint(equalTo: bubbleView.leadingAnchor, constant: -10)
+        reactionTrailingConstraint = reactionView.leadingAnchor.constraint(equalTo: bubbleView.trailingAnchor, constant: 10)
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -359,7 +557,7 @@ class MessageTableViewCell: UITableViewCell {
             if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
                 // Renk modu değiştiğinde UI'yi güncelle
                 if let text = messageLabel.text, let isFromCurrentUser = isCurrentUserMessage() {
-                    configure(with: text, isFromCurrentUser: isFromCurrentUser)
+                    configure(with: text, isFromCurrentUser: isFromCurrentUser, timestamp: nil, reaction: nil)
                 }
             }
         }
@@ -376,38 +574,73 @@ class MessageTableViewCell: UITableViewCell {
         return nil
     }
     
-    func configure(with message: String, isFromCurrentUser: Bool) {
+    // Zaman formatlama fonksiyonu
+    private func formatMessageTime(_ date: Date?) -> String {
+        guard let date = date else { return "" }
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+    
+    func configure(with message: String, isFromCurrentUser: Bool, timestamp: Date?, reaction: String? = nil) {
+        // Mesaj içeriği ve zaman
         messageLabel.text = message
+        timeLabel.text = formatMessageTime(timestamp)
         
         // Önceki constraint'leri devre dışı bırak
         leadingConstraint?.isActive = false
         trailingConstraint?.isActive = false
+        reactionLeadingConstraint?.isActive = false
+        reactionTrailingConstraint?.isActive = false
         
         // Kullanıcıya göre baloncuk rengini ve konumunu ayarla
         if isFromCurrentUser {
+            // Sağ taraf (kendi mesajlarım)
+            trailingConstraint?.isActive = true
+            leadingConstraint?.isActive = false
+            
+            // Tepki pozisyonu (sol tarafta olacak)
+            reactionLeadingConstraint?.isActive = true
+            reactionTrailingConstraint?.isActive = false
+            
             // Sistem moduna göre renkler
             if #available(iOS 13.0, *) {
                 bubbleView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.3)
                 messageLabel.textColor = .label
+                timeLabel.textColor = .secondaryLabel
             } else {
                 bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.6, blue: 0.0, alpha: 0.3)
                 messageLabel.textColor = .black
+                timeLabel.textColor = .darkGray
             }
-            
-            trailingConstraint?.isActive = true
-            leadingConstraint?.isActive = false
         } else {
+            // Sol taraf (karşı tarafın mesajları)
+            leadingConstraint?.isActive = true
+            trailingConstraint?.isActive = false
+            
+            // Tepki pozisyonu (sağ tarafta olacak)
+            reactionTrailingConstraint?.isActive = true
+            reactionLeadingConstraint?.isActive = false
+            
             // Sistem moduna göre renkler
             if #available(iOS 13.0, *) {
                 bubbleView.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.3)
                 messageLabel.textColor = .label
+                timeLabel.textColor = .secondaryLabel
             } else {
                 bubbleView.backgroundColor = UIColor(red: 0.0, green: 0.0, blue: 0.8, alpha: 0.3)
                 messageLabel.textColor = .black
+                timeLabel.textColor = .darkGray
             }
-            
-            leadingConstraint?.isActive = true
-            trailingConstraint?.isActive = false
+        }
+        
+        // Tepki ayarları
+        if let reaction = reaction {
+            reactionView.isHidden = false
+            reactionLabel.text = reaction
+        } else {
+            reactionView.isHidden = true
         }
         
         setNeedsLayout()
