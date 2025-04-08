@@ -1,6 +1,7 @@
 import UIKit
 import Firebase
 import FirebaseAuth
+import FirebaseFirestore
 
 class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
@@ -9,6 +10,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     
     var filteredUsers: [User] = [] // Filtrelenmiş kullanıcılar
     var isSearchActive = false // Arama modu aktif mi?
+    
+    // Son mesajları saklamak için dictionary ekliyorum
+    var lastMessages: [String: (message: String, sender: String, timestamp: Date?)] = [:]
     
     let tableView = UITableView()
     let searchBar = UISearchBar()
@@ -66,12 +70,15 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             
             if self.segmentedControl.selectedSegmentIndex == 0 {
                 self.updateFilteredUsers()
+                
+                // Sohbet kullanıcıları yüklendiğinde her biri için son mesajları da yükle
+                for user in self.viewModel.chatUsers {
+                    self.loadLastMessageForUser(userId: user.uid)
+                }
             }
         }
         
         // Internet bağlantısı kontrolü için callback
-        // UsersViewController.swift içinde, setupBindings() metoduna ekleyin:
-
         viewModel.onInternetStatusChanged = { [weak self] (isConnected: Bool, message: String) in
             guard let self = self else { return }
             
@@ -89,9 +96,6 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                 }
             }
         }
-
-        // viewDidLoad() içinde şu satırı ekleyin:
-        viewModel.checkInternetConnection()
     }
     
     // İnternet bağlantısı olmadığında gösterilecek uyarı
@@ -170,6 +174,11 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             // Sohbetler
             filteredUsers = viewModel.chatUsers
             navigationItem.title = "Sohbetler"
+            
+            // Sohbetler sekmesinde son mesajları yükle
+            for user in viewModel.chatUsers {
+                loadLastMessageForUser(userId: user.uid)
+            }
         } else {
             // Tüm Kullanıcılar
             filteredUsers = viewModel.users
@@ -219,9 +228,102 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     }
     
     @objc func refreshUserList() {
+        // Kullanıcıları yeniden yükle
         viewModel.loadInitialData()
+        
+        // Son mesajları yeniden yükle
+        if segmentedControl.selectedSegmentIndex == 0 {
+            for user in viewModel.chatUsers {
+                loadLastMessageForUser(userId: user.uid)
+            }
+        }
+        
         DispatchQueue.main.async {
             self.tableView.refreshControl?.endRefreshing()
+        }
+    }
+    
+    // MARK: - Last Message Loading
+    
+    // Son mesajları yüklemek için yeni fonksiyon
+    func loadLastMessageForUser(userId: String) {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
+        // İki kullanıcı arasındaki channel ID'yi oluştur
+        let channelId = WebSocketManager.createChannelId(currentUserId: currentUserId, otherUserId: userId)
+        
+        // Firestore'dan son mesajı çek
+        let db = Firestore.firestore()
+        db.collection("chats").document(channelId).collection("messages")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 1)
+            .getDocuments { [weak self] (snapshot, error) in
+                if let error = error {
+                    print("Son mesaj yüklenirken hata: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let document = snapshot?.documents.first,
+                      let message = document.data()["message"] as? String,
+                      let senderId = document.data()["senderId"] as? String else {
+                    // Son mesaj yok
+                    self?.lastMessages[userId] = ("Henüz mesaj yok", "", nil)
+                    
+                    DispatchQueue.main.async {
+                        self?.tableView.reloadData()
+                    }
+                    return
+                }
+                
+                // Mesaj göndereni belirle (ben/diğer kullanıcı)
+                let senderPrefix = (senderId == currentUserId) ? "Siz: " : ""
+                
+                // Timestamp varsa al
+                var timestamp: Date? = nil
+                if let timestampValue = document.data()["timestamp"] as? Timestamp {
+                    timestamp = timestampValue.dateValue()
+                }
+                
+                // Son mesaj bilgisini güncelle
+                self?.lastMessages[userId] = (message: message, sender: senderPrefix, timestamp: timestamp)
+                
+                DispatchQueue.main.async {
+                    self?.tableView.reloadData()
+                }
+            }
+    }
+    
+    // Mesaj zamanını formatlama fonksiyonu
+    func formatMessageTime(_ date: Date?) -> String {
+        guard let date = date else {
+            return ""
+        }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Bugün içindeyse saat:dakika göster
+        if calendar.isDateInToday(date) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: date)
+        }
+        // Dün ise "Dün" yaz
+        else if calendar.isDateInYesterday(date) {
+            return "Dün"
+        }
+        // Bu hafta içindeyse gün adını göster
+        else if let weekAgo = calendar.date(byAdding: .day, value: -7, to: now), date > weekAgo {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE" // Gün adı
+            formatter.locale = Locale(identifier: "tr_TR") // Türkçe gün adları için
+            return formatter.string(from: date)
+        }
+        // Diğer durumlar için tarih göster
+        else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "dd.MM.yyyy"
+            return formatter.string(from: date)
         }
     }
     
@@ -251,7 +353,21 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "UserCell", for: indexPath) as! UserTableViewCell
         let user = filteredUsers[indexPath.row]
-        cell.configure(with: user)
+        
+        // Son mesaj bilgisini al
+        let lastMessageInfo = lastMessages[user.uid]
+        
+        // Sohbetler sekmesinde son mesajı göster, Tüm Kullanıcılar sekmesinde email göster
+        if segmentedControl.selectedSegmentIndex == 0 {
+            let messageText = lastMessageInfo?.message ?? "Henüz mesaj yok"
+            let senderPrefix = lastMessageInfo?.sender ?? ""
+            let timestampStr = formatMessageTime(lastMessageInfo?.timestamp)
+            
+            cell.configure(with: user, subtitle: "\(senderPrefix)\(messageText)", time: timestampStr)
+        } else {
+            cell.configure(with: user, subtitle: user.username, time: "")
+        }
+        
         return cell
     }
     
@@ -332,12 +448,13 @@ struct User {
     let username: String
 }
 
-// Custom TableViewCell
+// Custom TableViewCell - Güncellenmiş Versiyon
 class UserTableViewCell: UITableViewCell {
     
     private let profileImageView = UIImageView()
     private let nameLabel = UILabel()
-    private let emailLabel = UILabel()
+    private let subtitleLabel = UILabel()
+    private let timeLabel = UILabel() // Zaman etiketi eklendi
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -360,12 +477,19 @@ class UserTableViewCell: UITableViewCell {
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(nameLabel)
         
-        emailLabel.font = UIFont.systemFont(ofSize: 14)
-        emailLabel.textColor = .secondaryLabel
-        emailLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(emailLabel)
+        subtitleLabel.font = UIFont.systemFont(ofSize: 14)
+        subtitleLabel.textColor = .secondaryLabel
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(subtitleLabel)
         
-        // AutoLayout constraints
+        // Zaman etiketi eklendi
+        timeLabel.font = UIFont.systemFont(ofSize: 12)
+        timeLabel.textColor = .tertiaryLabel
+        timeLabel.textAlignment = .right
+        timeLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(timeLabel)
+        
+        // AutoLayout constraints - güncellendi
         NSLayoutConstraint.activate([
             profileImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             profileImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
@@ -374,18 +498,23 @@ class UserTableViewCell: UITableViewCell {
             
             nameLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
             nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
-            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            nameLabel.trailingAnchor.constraint(equalTo: timeLabel.leadingAnchor, constant: -8),
             
-            emailLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
-            emailLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
-            emailLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            emailLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
+            timeLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            timeLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            timeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
+            
+            subtitleLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
+            subtitleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
+            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            subtitleLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10)
         ])
     }
     
-    func configure(with user: User) {
+    func configure(with user: User, subtitle: String, time: String) {
         nameLabel.text = user.name
-        emailLabel.text = user.email
+        subtitleLabel.text = subtitle
+        timeLabel.text = time
         profileImageView.image = UIImage(systemName: "person.circle.fill") // Placeholder
     }
 }
