@@ -499,8 +499,9 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
             self?.showImagePicker(sourceType: .camera)
         }))
         
-        // Kullanıcının zaten profil fotoğrafı varsa silme seçeneği
-        if profileImageView.image != nil && profileImageView.image != UIImage(systemName: "person.circle.fill") {
+        // Kullanıcının zaten gerçek bir profil fotoğrafı varsa silme seçeneğini ekle
+        // Varsayılan kişi simgesini kontrol et - tintColor kontrolü ile daha güvenilir
+        if profileImageView.tintColor == .clear {
             actionSheet.addAction(UIAlertAction(title: "Fotoğrafı Kaldır", style: .destructive, handler: { [weak self] _ in
                 self?.removeProfileImage()
             }))
