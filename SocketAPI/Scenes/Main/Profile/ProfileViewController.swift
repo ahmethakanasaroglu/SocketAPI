@@ -1,4 +1,5 @@
 import UIKit
+import AVFoundation
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
@@ -284,15 +285,59 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     }
     
     private func showImagePicker(sourceType: UIImagePickerController.SourceType) {
-        if UIImagePickerController.isSourceTypeAvailable(sourceType) {
-            let imagePickerController = UIImagePickerController()
-            imagePickerController.delegate = self
-            imagePickerController.sourceType = sourceType
-            imagePickerController.allowsEditing = true
-            present(imagePickerController, animated: true)
-        } else {
-            hataMesaji(titleInput: "Hata", messageInput: sourceType == .camera ? "Kamera kullanılamıyor." : "Fotograf galerisi kullanılamıyor.")
+        // Önce kamera kullanılabilirliğini kontrol et
+        if sourceType == .camera && !UIImagePickerController.isSourceTypeAvailable(.camera) {
+            hataMesaji(titleInput: "Hata", messageInput: "Kamera kullanılamıyor.")
+            return
         }
+        
+        // Fotoğraf galerisi kullanılabilirliğini kontrol et
+        if sourceType == .photoLibrary && !UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
+            hataMesaji(titleInput: "Hata", messageInput: "Fotograf galerisi kullanılamıyor.")
+            return
+        }
+        
+        // Kamera izni kontrolü
+        if sourceType == .camera {
+            let cameraAuthStatus = AVCaptureDevice.authorizationStatus(for: .video)
+            
+            switch cameraAuthStatus {
+            case .notDetermined:
+                // Kullanıcıdan izin iste
+                AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            self?.presentImagePicker(sourceType: sourceType)
+                        } else {
+                            self?.hataMesaji(titleInput: "İzin Hatası", messageInput: "Kamera erişim izni verilmedi.")
+                        }
+                    }
+                }
+                return
+                
+            case .restricted, .denied:
+                // Kullanıcıya ayarlara gitmesini söyle
+                hataMesaji(titleInput: "İzin Hatası", messageInput: "Kamera erişim izni verilmedi. Ayarlara giderek izin vermeniz gerekiyor.")
+                return
+                
+            case .authorized:
+                // İzin verilmiş, devam et
+                break
+                
+            @unknown default:
+                break
+            }
+        }
+        
+        presentImagePicker(sourceType: sourceType)
+    }
+
+    private func presentImagePicker(sourceType: UIImagePickerController.SourceType) {
+        let imagePickerController = UIImagePickerController()
+        imagePickerController.delegate = self
+        imagePickerController.sourceType = sourceType
+        imagePickerController.allowsEditing = true
+        present(imagePickerController, animated: true)
     }
     
     // UIImagePickerController delegate methods
