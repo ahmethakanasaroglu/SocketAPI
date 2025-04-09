@@ -270,158 +270,160 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     }
     
     private func setupUI() {
-        navigationItem.title = "Profil"
-        
-        // ScrollView'u view'a ekle
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentView)
-        
-        // ScrollView ve ContentView'in constraint'lerini ayarla
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
-        ])
-        
-        // Profil resmi üst kısma yerleştir
-        contentView.addSubview(profileImageView)
-        contentView.addSubview(imageLoadingIndicator)
-        
-        NSLayoutConstraint.activate([
-            profileImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            profileImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
-            profileImageView.widthAnchor.constraint(equalToConstant: 100),
-            profileImageView.heightAnchor.constraint(equalToConstant: 100),
-            
-            imageLoadingIndicator.centerXAnchor.constraint(equalTo: profileImageView.centerXAnchor),
-            imageLoadingIndicator.centerYAnchor.constraint(equalTo: profileImageView.centerYAnchor)
-        ])
-        
-        // Alan düzenleri için container view
-        let fieldsContainer = UIView()
-        fieldsContainer.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(fieldsContainer)
-        
-        NSLayoutConstraint.activate([
-            fieldsContainer.topAnchor.constraint(equalTo: profileImageView.bottomAnchor, constant: 30),
-            fieldsContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            fieldsContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
-        ])
-        
-        // Her alan için bir görünüm oluştur
-        let nameField = createFieldGroup(label: "İsim - Soyisim:", textField: nameTextField, button: changeNameButton)
-        let usernameField = createFieldGroup(label: "Kullanıcı Adı:", textField: usernameTextField, button: changeUsernameButton)
-        let ageField = createFieldGroup(label: "Yaş:", textField: ageTextField, button: changeAgeButton)
-        let cityField = createFieldGroup(label: "Şehir:", textField: cityTextField, button: changeCityButton)
-        let genderField = createFieldGroup(label: "Cinsiyet:", textField: genderTextField, button: changeGenderButton)
-        
-        // Email ve UID alanları
-        let emailContainer = UIView()
-        emailContainer.translatesAutoresizingMaskIntoConstraints = false
-        
-        emailContainer.addSubview(emailInfoLabel)
-        emailContainer.addSubview(emailLabel)
-        
-        NSLayoutConstraint.activate([
-            emailInfoLabel.topAnchor.constraint(equalTo: emailContainer.topAnchor),
-            emailInfoLabel.leadingAnchor.constraint(equalTo: emailContainer.leadingAnchor),
-            emailInfoLabel.bottomAnchor.constraint(equalTo: emailContainer.bottomAnchor),
-            
-            emailLabel.leadingAnchor.constraint(equalTo: emailInfoLabel.trailingAnchor, constant: 8),
-            emailLabel.centerYAnchor.constraint(equalTo: emailInfoLabel.centerYAnchor),
-            emailLabel.trailingAnchor.constraint(equalTo: emailContainer.trailingAnchor)
-        ])
-        
-        let uidContainer = UIView()
-        uidContainer.translatesAutoresizingMaskIntoConstraints = false
-        
-        uidContainer.addSubview(uidInfoLabel)
-        uidContainer.addSubview(uidLabel)
-        
-        NSLayoutConstraint.activate([
-            uidInfoLabel.topAnchor.constraint(equalTo: uidContainer.topAnchor),
-            uidInfoLabel.leadingAnchor.constraint(equalTo: uidContainer.leadingAnchor),
-            uidInfoLabel.bottomAnchor.constraint(equalTo: uidContainer.bottomAnchor),
-            
-            uidLabel.leadingAnchor.constraint(equalTo: uidInfoLabel.trailingAnchor, constant: 8),
-            uidLabel.centerYAnchor.constraint(equalTo: uidInfoLabel.centerYAnchor),
-            uidLabel.trailingAnchor.constraint(equalTo: uidContainer.trailingAnchor)
-        ])
-        
-        // Veri alanlarını bir stack view'a koy
-        let fieldsStackView = UIStackView(arrangedSubviews: [
-            nameField, usernameField, ageField, cityField, genderField, emailContainer, uidContainer
-        ])
-        
-        fieldsStackView.axis = .vertical
-        fieldsStackView.spacing = 20
-        fieldsStackView.translatesAutoresizingMaskIntoConstraints = false
-        fieldsContainer.addSubview(fieldsStackView)
-        
-        NSLayoutConstraint.activate([
-            fieldsStackView.topAnchor.constraint(equalTo: fieldsContainer.topAnchor),
-            fieldsStackView.leadingAnchor.constraint(equalTo: fieldsContainer.leadingAnchor),
-            fieldsStackView.trailingAnchor.constraint(equalTo: fieldsContainer.trailingAnchor),
-            fieldsStackView.bottomAnchor.constraint(equalTo: fieldsContainer.bottomAnchor)
-        ])
-        
-        // Butonları contentView'a ekle
-        contentView.addSubview(saveButton)
-        contentView.addSubview(logoutButton)
-        
-        NSLayoutConstraint.activate([
-            saveButton.topAnchor.constraint(equalTo: fieldsContainer.bottomAnchor, constant: 30),
-            saveButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            saveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            saveButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            logoutButton.topAnchor.constraint(equalTo: saveButton.bottomAnchor, constant: 20),
-            logoutButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            logoutButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            logoutButton.heightAnchor.constraint(equalToConstant: 50),
-            logoutButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
-        ])
-    }
+            navigationItem.title = "Profil"
+
+            view.addSubview(scrollView)
+            scrollView.addSubview(contentView)
+
+            NSLayoutConstraint.activate([
+                scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+
+                contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+                contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+                contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+                contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+                contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
+            ])
+
+            contentView.addSubview(profileImageView)
+            contentView.addSubview(imageLoadingIndicator)
+
+            NSLayoutConstraint.activate([
+                profileImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+                profileImageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+                profileImageView.widthAnchor.constraint(equalToConstant: 100),
+                profileImageView.heightAnchor.constraint(equalToConstant: 100),
+
+                imageLoadingIndicator.centerXAnchor.constraint(equalTo: profileImageView.centerXAnchor),
+                imageLoadingIndicator.centerYAnchor.constraint(equalTo: profileImageView.centerYAnchor)
+            ])
+
+            let fieldsContainer = UIView()
+            fieldsContainer.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview(fieldsContainer)
+
+            NSLayoutConstraint.activate([
+                fieldsContainer.topAnchor.constraint(equalTo: profileImageView.bottomAnchor, constant: 30),
+                fieldsContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+                fieldsContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
+            ])
+
+            let nameField = createFieldGroup(label: "İsim - Soyisim:", textField: nameTextField, button: changeNameButton)
+            let usernameField = createFieldGroup(label: "Kullanıcı Adı:", textField: usernameTextField, button: changeUsernameButton)
+            let ageField = createFieldGroup(label: "Yaş:", textField: ageTextField, button: changeAgeButton)
+            let cityField = createFieldGroup(label: "Şehir:", textField: cityTextField, button: changeCityButton)
+            let genderField = createFieldGroup(label: "Cinsiyet:", textField: genderTextField, button: changeGenderButton)
+
+            let emailContainer = createInfoRow(titleLabel: emailInfoLabel, valueLabel: emailLabel)
+            let uidContainer = createInfoRow(titleLabel: uidInfoLabel, valueLabel: uidLabel)
+
+            let fieldsStackView = UIStackView(arrangedSubviews: [
+                nameField, usernameField, ageField, cityField, genderField, emailContainer, uidContainer
+            ])
+
+            fieldsStackView.axis = .vertical
+            fieldsStackView.spacing = 24
+            fieldsStackView.translatesAutoresizingMaskIntoConstraints = false
+            fieldsContainer.addSubview(fieldsStackView)
+
+            NSLayoutConstraint.activate([
+                fieldsStackView.topAnchor.constraint(equalTo: fieldsContainer.topAnchor),
+                fieldsStackView.leadingAnchor.constraint(equalTo: fieldsContainer.leadingAnchor),
+                fieldsStackView.trailingAnchor.constraint(equalTo: fieldsContainer.trailingAnchor),
+                fieldsStackView.bottomAnchor.constraint(equalTo: fieldsContainer.bottomAnchor)
+            ])
+
+            contentView.addSubview(saveButton)
+            contentView.addSubview(logoutButton)
+
+            NSLayoutConstraint.activate([
+                saveButton.topAnchor.constraint(equalTo: fieldsContainer.bottomAnchor, constant: 40),
+                saveButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+                saveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+                saveButton.heightAnchor.constraint(equalToConstant: 54),
+
+                logoutButton.topAnchor.constraint(equalTo: saveButton.bottomAnchor, constant: 20),
+                logoutButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+                logoutButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+                logoutButton.heightAnchor.constraint(equalToConstant: 54),
+                logoutButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30)
+            ])
+        }
+    
+    private func createInfoRow(titleLabel: UILabel, valueLabel: UILabel) -> UIView {
+            let container = UIView()
+            container.translatesAutoresizingMaskIntoConstraints = false
+            container.backgroundColor = UIColor.secondarySystemGroupedBackground
+            container.layer.cornerRadius = 12
+            container.layer.shadowColor = UIColor.black.cgColor
+            container.layer.shadowOpacity = 0.05
+            container.layer.shadowOffset = CGSize(width: 0, height: 2)
+            container.layer.shadowRadius = 4
+
+            container.addSubview(titleLabel)
+            container.addSubview(valueLabel)
+
+            NSLayoutConstraint.activate([
+                titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+                titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                titleLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
+
+                valueLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
+                valueLabel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+                valueLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12)
+            ])
+
+            return container
+        }
     
     private func createFieldGroup(label: String, textField: UITextField, button: UIButton) -> UIView {
-        let container = UIView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        
-        let labelView = UILabel()
-        labelView.text = label
-        labelView.font = UIFont.systemFont(ofSize: 14, weight: .medium)
-        labelView.textColor = .secondaryLabel
-        labelView.translatesAutoresizingMaskIntoConstraints = false
-        
-        container.addSubview(labelView)
-        container.addSubview(textField)
-        container.addSubview(button)
-        
-        NSLayoutConstraint.activate([
-            labelView.topAnchor.constraint(equalTo: container.topAnchor),
-            labelView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            labelView.widthAnchor.constraint(equalToConstant: 100),
-            
-            textField.topAnchor.constraint(equalTo: labelView.bottomAnchor, constant: 4),
-            textField.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            textField.trailingAnchor.constraint(equalTo: button.leadingAnchor, constant: -8),
-            textField.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            textField.heightAnchor.constraint(equalToConstant: 40),
-            
-            button.centerYAnchor.constraint(equalTo: textField.centerYAnchor),
-            button.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            button.widthAnchor.constraint(equalToConstant: 70)
-        ])
-        
-        return container
-    }
+            let container = UIView()
+            container.translatesAutoresizingMaskIntoConstraints = false
+            container.backgroundColor = UIColor.secondarySystemGroupedBackground
+            container.layer.cornerRadius = 12
+            container.layer.shadowColor = UIColor.black.cgColor
+            container.layer.shadowOpacity = 0.05
+            container.layer.shadowOffset = CGSize(width: 0, height: 2)
+            container.layer.shadowRadius = 4
+
+            let labelView = UILabel()
+            labelView.text = label
+            labelView.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
+            labelView.textColor = .secondaryLabel
+            labelView.translatesAutoresizingMaskIntoConstraints = false
+
+            textField.layer.cornerRadius = 10
+            textField.layer.borderWidth = 0.8
+            textField.layer.borderColor = UIColor.systemGray4.cgColor
+            textField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 8, height: 40))
+            textField.leftViewMode = .always
+
+            container.addSubview(labelView)
+            container.addSubview(textField)
+            container.addSubview(button)
+
+            NSLayoutConstraint.activate([
+                labelView.topAnchor.constraint(equalTo: container.topAnchor, constant: 10),
+                labelView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                labelView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+
+                textField.topAnchor.constraint(equalTo: labelView.bottomAnchor, constant: 4),
+                textField.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                textField.trailingAnchor.constraint(equalTo: button.leadingAnchor, constant: -8),
+                textField.heightAnchor.constraint(equalToConstant: 40),
+
+                button.centerYAnchor.constraint(equalTo: textField.centerYAnchor),
+                button.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+                button.widthAnchor.constraint(equalToConstant: 70),
+
+                textField.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12)
+            ])
+
+            return container
+        }
     
     // MARK: - Data Methods
     
