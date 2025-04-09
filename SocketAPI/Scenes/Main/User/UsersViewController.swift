@@ -2,6 +2,7 @@ import UIKit
 import Firebase
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
 
 class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
@@ -368,6 +369,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             cell.configure(with: user, subtitle: user.username, time: "")
         }
         
+        // Profil fotoğrafını yükle
+        cell.loadProfileImage(for: user.uid)
+        
         return cell
     }
     
@@ -456,6 +460,13 @@ class UserTableViewCell: UITableViewCell {
     private let subtitleLabel = UILabel()
     private let timeLabel = UILabel() // Zaman etiketi eklendi
     
+    // Yükleme göstergesi
+    private let loadingIndicator = UIActivityIndicatorView(style: .medium)
+    
+    // Profil fotoğrafının yüklenip yüklenmediğini takip eden bayrak
+    private var isLoadingProfileImage = false
+    private var currentLoadingUserId: String?
+    
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupCell()
@@ -471,6 +482,11 @@ class UserTableViewCell: UITableViewCell {
         profileImageView.backgroundColor = .systemGray
         profileImageView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(profileImageView)
+        
+        // Yükleme göstergesini ayarla
+        loadingIndicator.hidesWhenStopped = true
+        loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
+        profileImageView.addSubview(loadingIndicator)
         
         nameLabel.font = UIFont.boldSystemFont(ofSize: 16)
         nameLabel.textColor = .label
@@ -496,6 +512,10 @@ class UserTableViewCell: UITableViewCell {
             profileImageView.widthAnchor.constraint(equalToConstant: 60),
             profileImageView.heightAnchor.constraint(equalToConstant: 60),
             
+            // Yükleme göstergesi için constraints
+            loadingIndicator.centerXAnchor.constraint(equalTo: profileImageView.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: profileImageView.centerYAnchor),
+            
             nameLabel.leadingAnchor.constraint(equalTo: profileImageView.trailingAnchor, constant: 16),
             nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
             nameLabel.trailingAnchor.constraint(equalTo: timeLabel.leadingAnchor, constant: -8),
@@ -511,11 +531,87 @@ class UserTableViewCell: UITableViewCell {
         ])
     }
     
+    // Hücre yeniden kullanıldığında içeriği temizle
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        // Yüklemeyi iptal et ve yükleme göstergesini durdur
+        if isLoadingProfileImage {
+            loadingIndicator.stopAnimating()
+            isLoadingProfileImage = false
+            currentLoadingUserId = nil
+        }
+        
+        // Varsayılan profil resmini göster
+        profileImageView.image = UIImage(systemName: "person.circle.fill")
+        profileImageView.tintColor = .systemBlue
+        
+        // Diğer içerikleri temizle
+        nameLabel.text = nil
+        subtitleLabel.text = nil
+        timeLabel.text = nil
+    }
+    
     func configure(with user: User, subtitle: String, time: String) {
         nameLabel.text = user.name
         subtitleLabel.text = subtitle
         timeLabel.text = time
-        profileImageView.image = UIImage(systemName: "person.circle.fill") // Placeholder
+        
+        // Başlangıçta varsayılan profil ikonu göster
+        profileImageView.image = UIImage(systemName: "person.circle.fill")
+        profileImageView.tintColor = .systemBlue
+    }
+    
+    // Profil fotoğrafını yüklemek için fonksiyon
+    func loadProfileImage(for userId: String) {
+        // Eğer zaten aynı kullanıcı için yükleme yapılıyorsa tekrar yükleme
+        if currentLoadingUserId == userId && isLoadingProfileImage {
+            return
+        }
+        
+        // Yükleme durumunu güncelle
+        isLoadingProfileImage = true
+        currentLoadingUserId = userId
+        
+        // Yükleme göstergesini başlat
+        loadingIndicator.startAnimating()
+        
+        // Storage referansını oluştur
+        let storage = Storage.storage()
+        let storageRef = storage.reference()
+        let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
+        
+        // Profil fotoğrafını indir
+        profileImageRef.getData(maxSize: 5 * 1024 * 1024) { [weak self] data, error in
+            DispatchQueue.main.async {
+                // Yükleme göstergesini durdur
+                self?.loadingIndicator.stopAnimating()
+                self?.isLoadingProfileImage = false
+                
+                // Eğer hücre artık farklı bir kullanıcıya atanmışsa işlemi iptal et
+                if self?.currentLoadingUserId != userId {
+                    return
+                }
+                
+                if let error = error {
+                    print("Profil fotoğrafı yükleme hatası: \(error.localizedDescription)")
+                    // Varsayılan profil ikonu göster
+                    self?.profileImageView.image = UIImage(systemName: "person.circle.fill")
+                    self?.profileImageView.tintColor = .systemBlue
+                    return
+                }
+                
+                if let imageData = data, let image = UIImage(data: imageData) {
+                    self?.profileImageView.image = image
+                    self?.profileImageView.tintColor = .clear
+                } else {
+                    self?.profileImageView.image = UIImage(systemName: "person.circle.fill")
+                    self?.profileImageView.tintColor = .systemBlue
+                }
+                
+                self?.currentLoadingUserId = nil
+            }
+        }
     }
 }
 
