@@ -1,6 +1,7 @@
 import UIKit
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
 
 class ChatViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
     private let viewModel = ChatViewModel()
@@ -25,7 +26,6 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = selectedUser?.name
         
         // Geçerli kullanıcı ID'sini al
         if let userID = Auth.auth().currentUser?.uid {
@@ -42,6 +42,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         setupUI()
         setupEmojiPicker()
         setupGestures()
+        setupCustomNavigationTitle()
         
         // Sağ üste "Temizle" butonunu ekle
         let clearButton = UIBarButtonItem(title: "Temizle", style: .plain, target: self, action: #selector(clearChat))
@@ -79,6 +80,9 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         // Klavye bildirimlerini dinle
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(notification:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(notification:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+        
+        // Kullanıcı profil resmi yükle
+        loadUserProfileImage()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -99,46 +103,40 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         viewModel.disconnectSocket()
     }
     
-    @objc func clearChat() {
-        let alertController = UIAlertController(
-            title: "Sohbeti Temizle",
-            message: "Tüm sohbet geçmişi silinecek. Bu işlem geri alınamaz.",
-            preferredStyle: .alert
-        )
-        
-        let cancelAction = UIAlertAction(title: "İptal", style: .cancel)
-        let deleteAction = UIAlertAction(title: "Tümünü Sil", style: .destructive) { [weak self] _ in
-            self?.viewModel.deleteAllMessages { success in
-                if success {
-                    DispatchQueue.main.async {
-                        self?.tableView.reloadData()
-                    }
-                } else {
-                    // Silme başarısız olursa kullanıcıya bildir
-                    let errorAlert = UIAlertController(
-                        title: "Hata",
-                        message: "Sohbet temizlenirken bir hata oluştu.",
-                        preferredStyle: .alert
-                    )
-                    errorAlert.addAction(UIAlertAction(title: "Tamam", style: .default))
-                    self?.present(errorAlert, animated: true)
-                }
-            }
-        }
-        
-        alertController.addAction(cancelAction)
-        alertController.addAction(deleteAction)
-        
-        present(alertController, animated: true)
-    }
+    // MARK: - Setup Methods
     
-    @objc func goBack() {
-        let usersVC = MainTabBarController()
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            window.rootViewController = UINavigationController(rootViewController: usersVC)
-            window.makeKeyAndVisible()
-        }
+    private func setupCustomNavigationTitle() {
+        guard let selectedUser = selectedUser else { return }
+        
+        // Custom title view oluştur
+        let titleView = UIView(frame: CGRect(x: 0, y: 0, width: 200, height: 44))
+        
+        // Kullanıcı profil resmi
+        let profileImageView = UIImageView(frame: CGRect(x: 0, y: 7, width: 30, height: 30))
+        profileImageView.layer.cornerRadius = 15
+        profileImageView.clipsToBounds = true
+        profileImageView.backgroundColor = .systemGray5
+        profileImageView.contentMode = .scaleAspectFill
+        
+        // Varsayılan profil resmi
+        let defaultImage = UIImage(systemName: "person.circle.fill")
+        profileImageView.image = defaultImage
+        profileImageView.tintColor = .systemBlue
+        
+        // Kullanıcı adı etiketi
+        let nameLabel = UILabel(frame: CGRect(x: 40, y: 7, width: 160, height: 30))
+        nameLabel.text = selectedUser.name
+        nameLabel.font = UIFont.boldSystemFont(ofSize: 16)
+        
+        // Bileşenleri titleView'a ekle
+        titleView.addSubview(profileImageView)
+        titleView.addSubview(nameLabel)
+        
+        // titleView'ı navigationItem.titleView olarak ayarla
+        navigationItem.titleView = titleView
+        
+        // Profil fotoğrafını yüklemek için tag ekle
+        profileImageView.tag = 100
     }
     
     private func setupUI() {
@@ -288,7 +286,58 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
     }
     
-    @objc func toggleEmojiPicker() {
+    private func setupGestures() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false // TableView seçimlerini engellemez
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    // MARK: - User Profile Methods
+    
+    private func loadUserProfileImage() {
+        guard let userId = selectedUser?.uid else { return }
+        
+        let storage = Storage.storage()
+        let storageRef = storage.reference()
+        let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
+        
+        // Önce kullanıcının bir profil fotoğrafı olup olmadığını kontrol et
+        profileImageRef.downloadURL { [weak self] (url, error) in
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("Profil resmi yüklenirken hata: \(error.localizedDescription)")
+                // Hata varsa varsayılan resim olarak bırak
+                return
+            }
+            
+            guard let url = url else { return }
+            
+            // Profil fotoğrafını indir
+            let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
+                guard let data = data, error == nil else {
+                    print("Profil resmi indirme hatası: \(error?.localizedDescription ?? "Bilinmeyen hata")")
+                    return
+                }
+                
+                if let image = UIImage(data: data) {
+                    DispatchQueue.main.async {
+                        // Navigasyon çubuğundaki resmi güncelle
+                        if let titleView = self.navigationItem.titleView as? UIView,
+                           let profileImageView = titleView.viewWithTag(100) as? UIImageView {
+                            profileImageView.image = image
+                            profileImageView.tintColor = .clear
+                        }
+                    }
+                }
+            }
+            task.resume()
+        }
+    }
+    
+    // MARK: - Chat Actions
+    
+    @objc private func toggleEmojiPicker() {
         isEmojiPickerVisible.toggle()
         emojiPicker.isHidden = !isEmojiPickerVisible
     }
@@ -304,12 +353,6 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         
         // Emoji seçildiğinde picker'ı kapat
         toggleEmojiPicker()
-    }
-    
-    private func setupGestures() {
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        tapGesture.cancelsTouchesInView = false // TableView seçimlerini engellemez
-        view.addGestureRecognizer(tapGesture)
     }
     
     @objc private func dismissKeyboard() {
@@ -365,6 +408,50 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         }
     }
     
+    // MARK: - Other Actions
+    
+    @objc func clearChat() {
+        let alertController = UIAlertController(
+            title: "Sohbeti Temizle",
+            message: "Tüm sohbet geçmişi silinecek. Bu işlem geri alınamaz.",
+            preferredStyle: .alert
+        )
+        
+        let cancelAction = UIAlertAction(title: "İptal", style: .cancel)
+        let deleteAction = UIAlertAction(title: "Tümünü Sil", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteAllMessages { success in
+                if success {
+                    DispatchQueue.main.async {
+                        self?.tableView.reloadData()
+                    }
+                } else {
+                    // Silme başarısız olursa kullanıcıya bildir
+                    let errorAlert = UIAlertController(
+                        title: "Hata",
+                        message: "Sohbet temizlenirken bir hata oluştu.",
+                        preferredStyle: .alert
+                    )
+                    errorAlert.addAction(UIAlertAction(title: "Tamam", style: .default))
+                    self?.present(errorAlert, animated: true)
+                }
+            }
+        }
+        
+        alertController.addAction(cancelAction)
+        alertController.addAction(deleteAction)
+        
+        present(alertController, animated: true)
+    }
+    
+    @objc func goBack() {
+        let usersVC = MainTabBarController()
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController = UINavigationController(rootViewController: usersVC)
+            window.makeKeyAndVisible()
+        }
+    }
+    
     // Mesaj tarihini formatla
     private func formatMessageTime(_ date: Date?) -> String {
         guard let date = date else { return "" }
@@ -374,7 +461,8 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         return formatter.string(from: date)
     }
     
-    // UITableView DataSource & Delegate
+    // MARK: - UITableView DataSource & Delegate
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return viewModel.messages.count
     }
