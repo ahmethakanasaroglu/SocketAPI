@@ -5,6 +5,7 @@ class LoginViewModel {
     
     var onLoginSuccess: (() -> Void)?
     var onError: ((String) -> Void)?
+    var onPasswordResetSent: (() -> Void)?
     
     // Email veya username ile login işlemi
     func login(emailOrUsername: String, password: String) {
@@ -98,6 +99,19 @@ class LoginViewModel {
                     print("Kullanıcı Firestore'a başarıyla kaydedildi! UID: \(uid)")
                     completion(true)
                 }
+            }
+        }
+    }
+    
+    // ŞİFREMİ UNUTTUM FONKSİYONU
+    func resetPassword(email: String) {
+        Auth.auth().sendPasswordReset(withEmail: email) { [weak self] error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                self.onError?(error.localizedDescription)
+            } else {
+                self.onPasswordResetSent?()
             }
         }
     }
