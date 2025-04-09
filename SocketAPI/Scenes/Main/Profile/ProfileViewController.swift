@@ -1,25 +1,15 @@
 import UIKit
 import AVFoundation
 import FirebaseAuth
-import FirebaseFirestore
-import FirebaseStorage
 
 class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
+    // MARK: - Properties
+    private let viewModel = ProfileViewModel()
     private let themeSwitchButton = ThemeSwitchButton(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
     
     // Cinsiyet seçimi için picker
     private let genderPicker = UIPickerView()
-    private let genderOptions = ["Erkek", "Kadın", "Diğer"]
-    
-    // Orijinal değerleri saklayacak değişkenler
-    private var originalValues: [String: String] = [
-        "name": "",
-        "username": "",
-        "age": "",
-        "city": "",
-        "gender": ""
-    ]
     
     // Scrollview
     private let scrollView: UIScrollView = {
@@ -229,18 +219,7 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         return button
     }()
     
-    // Track which fields are being edited
-    private var editingFields: [String: Bool] = [
-        "name": false,
-        "username": false,
-        "age": false,
-        "city": false,
-        "gender": false
-    ]
-    
-    // Profil fotoğrafı için değişken
-    private var hasProfileImageChanged = false
-    private var selectedProfileImage: UIImage?
+    // MARK: - Life Cycle Methods
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -256,117 +235,11 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         view.addGestureRecognizer(tapGesture)
     }
     
+    // MARK: - Setup Methods
+    
     private func setupProfileImageTapGesture() {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(profileImageTapped))
         profileImageView.addGestureRecognizer(tapGesture)
-    }
-    
-    @objc private func profileImageTapped() {
-        let actionSheet = UIAlertController(title: "Profil Fotoğrafı", message: "Seçiminizi yapın", preferredStyle: .actionSheet)
-        
-        actionSheet.addAction(UIAlertAction(title: "Galeriden Seç", style: .default, handler: { [weak self] _ in
-            self?.showImagePicker(sourceType: .photoLibrary)
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: "Fotoğraf Çek", style: .default, handler: { [weak self] _ in
-            self?.showImagePicker(sourceType: .camera)
-        }))
-        
-        // Kullanıcının zaten profil fotoğrafı varsa silme seçeneği
-        if profileImageView.image != nil && profileImageView.image != UIImage(systemName: "person.circle.fill") {
-            actionSheet.addAction(UIAlertAction(title: "Fotoğrafı Kaldır", style: .destructive, handler: { [weak self] _ in
-                self?.removeProfileImage()
-            }))
-        }
-        
-        actionSheet.addAction(UIAlertAction(title: "İptal", style: .cancel))
-        
-        present(actionSheet, animated: true)
-    }
-    
-    private func showImagePicker(sourceType: UIImagePickerController.SourceType) {
-        // Önce kamera kullanılabilirliğini kontrol et
-        if sourceType == .camera && !UIImagePickerController.isSourceTypeAvailable(.camera) {
-            hataMesaji(titleInput: "Hata", messageInput: "Kamera kullanılamıyor.")
-            return
-        }
-        
-        // Fotoğraf galerisi kullanılabilirliğini kontrol et
-        if sourceType == .photoLibrary && !UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
-            hataMesaji(titleInput: "Hata", messageInput: "Fotograf galerisi kullanılamıyor.")
-            return
-        }
-        
-        // Kamera izni kontrolü
-        if sourceType == .camera {
-            let cameraAuthStatus = AVCaptureDevice.authorizationStatus(for: .video)
-            
-            switch cameraAuthStatus {
-            case .notDetermined:
-                // Kullanıcıdan izin iste
-                AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                    DispatchQueue.main.async {
-                        if granted {
-                            self?.presentImagePicker(sourceType: sourceType)
-                        } else {
-                            self?.hataMesaji(titleInput: "İzin Hatası", messageInput: "Kamera erişim izni verilmedi.")
-                        }
-                    }
-                }
-                return
-                
-            case .restricted, .denied:
-                // Kullanıcıya ayarlara gitmesini söyle
-                hataMesaji(titleInput: "İzin Hatası", messageInput: "Kamera erişim izni verilmedi. Ayarlara giderek izin vermeniz gerekiyor.")
-                return
-                
-            case .authorized:
-                // İzin verilmiş, devam et
-                break
-                
-            @unknown default:
-                break
-            }
-        }
-        
-        presentImagePicker(sourceType: sourceType)
-    }
-
-    private func presentImagePicker(sourceType: UIImagePickerController.SourceType) {
-        let imagePickerController = UIImagePickerController()
-        imagePickerController.delegate = self
-        imagePickerController.sourceType = sourceType
-        imagePickerController.allowsEditing = true
-        present(imagePickerController, animated: true)
-    }
-    
-    // UIImagePickerController delegate methods
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-        if let editedImage = info[.editedImage] as? UIImage {
-            selectedProfileImage = editedImage
-            profileImageView.image = editedImage
-            hasProfileImageChanged = true
-            updateSaveButtonState(isEnabled: true)
-        } else if let originalImage = info[.originalImage] as? UIImage {
-            selectedProfileImage = originalImage
-            profileImageView.image = originalImage
-            hasProfileImageChanged = true
-            updateSaveButtonState(isEnabled: true)
-        }
-        
-        dismiss(animated: true)
-    }
-    
-    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-        dismiss(animated: true)
-    }
-    
-    private func removeProfileImage() {
-        profileImageView.image = UIImage(systemName: "person.circle.fill")
-        profileImageView.tintColor = .systemBlue
-        selectedProfileImage = nil
-        hasProfileImageChanged = true
-        updateSaveButtonState(isEnabled: true)
     }
     
     private func setupGenderPicker() {
@@ -389,21 +262,6 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         // Cinsiyet alanına picker'ı tanımla
         genderTextField.inputView = genderPicker
         genderTextField.inputAccessoryView = toolbar
-    }
-    
-    @objc private func genderPickerDoneTapped() {
-        let selectedRow = genderPicker.selectedRow(inComponent: 0)
-        genderTextField.text = genderOptions[selectedRow]
-        genderTextField.resignFirstResponder()
-    }
-    
-    @objc private func genderPickerCancelTapped() {
-        // Değişiklik yapmadan kapat
-        genderTextField.resignFirstResponder()
-    }
-    
-    @objc private func dismissKeyboard() {
-        view.endEditing(true)
     }
     
     private func setupRightBarButton() {
@@ -565,82 +423,60 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         return container
     }
     
+    // MARK: - Data Methods
+    
     private func fetchUserData() {
-        guard let user = Auth.auth().currentUser else { return }
-        let db = Firestore.firestore()
-        
         imageLoadingIndicator.startAnimating()
         
-        db.collection("users").document(user.uid).getDocument { [weak self] snapshot, error in
+        viewModel.fetchUserData { [weak self] success in
             guard let self = self else { return }
             
-            if let error = error {
-                print("Hata: \(error.localizedDescription)")
+            if success {
+                // UI'ı güncelle
+                self.updateUIWithUserData()
+                
+                // Profil fotoğrafını yükle
+                if let userId = Auth.auth().currentUser?.uid {
+                    self.loadProfileImage(userId: userId)
+                } else {
+                    self.imageLoadingIndicator.stopAnimating()
+                }
+            } else {
                 self.imageLoadingIndicator.stopAnimating()
-                return
+                self.hataMesaji(titleInput: "Hata", messageInput: "Kullanıcı bilgileri yüklenemedi.")
             }
-            
-            guard let data = snapshot?.data() else {
-                self.imageLoadingIndicator.stopAnimating()
-                return
-            }
-            
-            // Tüm alanları doldur
-            let name = data["name"] as? String ?? ""
-            let username = data["username"] as? String ?? ""
-            let age = data["age"] as? Int
-            let city = data["city"] as? String ?? ""
-            let gender = data["gender"] as? String ?? ""
-            
-            self.nameTextField.text = name
-            self.usernameTextField.text = username
-            
-            if let age = age {
-                self.ageTextField.text = "\(age)"
-            }
-            
-            self.cityTextField.text = city
-            self.genderTextField.text = gender
-            
-            // Eğer gender değeri varsa, picker'ı ona göre ayarla
-            if let index = self.genderOptions.firstIndex(of: gender) {
-                self.genderPicker.selectRow(index, inComponent: 0, animated: false)
-            }
-            
-            self.emailLabel.text = user.email
-            self.uidLabel.text = user.uid
-            
-            // Orijinal değerleri sakla
-            self.originalValues["name"] = name
-            self.originalValues["username"] = username
-            self.originalValues["age"] = age != nil ? "\(age!)" : ""
-            self.originalValues["city"] = city
-            self.originalValues["gender"] = gender
-            
-            // Profil fotoğrafını yükle
-            self.loadProfileImage(userId: user.uid)
         }
     }
     
-    private func loadProfileImage(userId: String) {
-        let storage = Storage.storage()
-        let storageRef = storage.reference()
-        let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
+    private func updateUIWithUserData() {
+        nameTextField.text = viewModel.name
+        usernameTextField.text = viewModel.username
         
-        profileImageRef.getData(maxSize: 5 * 1024 * 1024) { [weak self] data, error in
+        if let age = viewModel.age {
+            ageTextField.text = "\(age)"
+        } else {
+            ageTextField.text = ""
+        }
+        
+        cityTextField.text = viewModel.city
+        genderTextField.text = viewModel.gender
+        
+        // Eğer gender değeri varsa, picker'ı ona göre ayarla
+        if let index = viewModel.genderOptions.firstIndex(of: viewModel.gender) {
+            genderPicker.selectRow(index, inComponent: 0, animated: false)
+        }
+        
+        emailLabel.text = viewModel.email
+        uidLabel.text = viewModel.uid
+    }
+    
+    private func loadProfileImage(userId: String) {
+        viewModel.loadProfileImage(userId: userId) { [weak self] image in
             guard let self = self else { return }
             
             self.imageLoadingIndicator.stopAnimating()
             
-            if let error = error {
-                print("Profil fotoğrafı yükleme hatası: \(error.localizedDescription)")
-                // Varsayılan profil ikonu göster
-                self.profileImageView.image = UIImage(systemName: "person.circle.fill")
-                self.profileImageView.tintColor = .systemBlue
-                return
-            }
-            
-            if let imageData = data, let image = UIImage(data: imageData) {
+            if let image = image {
                 self.profileImageView.image = image
                 self.profileImageView.tintColor = .clear
             } else {
@@ -648,6 +484,111 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
                 self.profileImageView.tintColor = .systemBlue
             }
         }
+    }
+    
+    // MARK: - Action Methods
+    
+    @objc private func profileImageTapped() {
+        let actionSheet = UIAlertController(title: "Profil Fotoğrafı", message: "Seçiminizi yapın", preferredStyle: .actionSheet)
+        
+        actionSheet.addAction(UIAlertAction(title: "Galeriden Seç", style: .default, handler: { [weak self] _ in
+            self?.showImagePicker(sourceType: .photoLibrary)
+        }))
+        
+        actionSheet.addAction(UIAlertAction(title: "Fotoğraf Çek", style: .default, handler: { [weak self] _ in
+            self?.showImagePicker(sourceType: .camera)
+        }))
+        
+        // Kullanıcının zaten profil fotoğrafı varsa silme seçeneği
+        if profileImageView.image != nil && profileImageView.image != UIImage(systemName: "person.circle.fill") {
+            actionSheet.addAction(UIAlertAction(title: "Fotoğrafı Kaldır", style: .destructive, handler: { [weak self] _ in
+                self?.removeProfileImage()
+            }))
+        }
+        
+        actionSheet.addAction(UIAlertAction(title: "İptal", style: .cancel))
+        
+        present(actionSheet, animated: true)
+    }
+    
+    private func showImagePicker(sourceType: UIImagePickerController.SourceType) {
+        // Önce kamera kullanılabilirliğini kontrol et
+        if sourceType == .camera && !UIImagePickerController.isSourceTypeAvailable(.camera) {
+            hataMesaji(titleInput: "Hata", messageInput: "Kamera kullanılamıyor.")
+            return
+        }
+        
+        // Fotoğraf galerisi kullanılabilirliğini kontrol et
+        if sourceType == .photoLibrary && !UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
+            hataMesaji(titleInput: "Hata", messageInput: "Fotograf galerisi kullanılamıyor.")
+            return
+        }
+        
+        // Kamera izni kontrolü
+        if sourceType == .camera {
+            let cameraAuthStatus = AVCaptureDevice.authorizationStatus(for: .video)
+            
+            switch cameraAuthStatus {
+            case .notDetermined:
+                // Kullanıcıdan izin iste
+                AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            self?.presentImagePicker(sourceType: sourceType)
+                        } else {
+                            self?.hataMesaji(titleInput: "İzin Hatası", messageInput: "Kamera erişim izni verilmedi.")
+                        }
+                    }
+                }
+                return
+                
+            case .restricted, .denied:
+                // Kullanıcıya ayarlara gitmesini söyle
+                hataMesaji(titleInput: "İzin Hatası", messageInput: "Kamera erişim izni verilmedi. Ayarlara giderek izin vermeniz gerekiyor.")
+                return
+                
+            case .authorized:
+                // İzin verilmiş, devam et
+                break
+                
+            @unknown default:
+                break
+            }
+        }
+        
+        presentImagePicker(sourceType: sourceType)
+    }
+
+    private func presentImagePicker(sourceType: UIImagePickerController.SourceType) {
+        let imagePickerController = UIImagePickerController()
+        imagePickerController.delegate = self
+        imagePickerController.sourceType = sourceType
+        imagePickerController.allowsEditing = true
+        present(imagePickerController, animated: true)
+    }
+    
+    private func removeProfileImage() {
+        profileImageView.image = UIImage(systemName: "person.circle.fill")
+        profileImageView.tintColor = .systemBlue
+        viewModel.selectedProfileImage = nil
+        viewModel.hasProfileImageChanged = true
+        updateSaveButtonState(isEnabled: true)
+    }
+    
+    @objc private func genderPickerDoneTapped() {
+        let selectedRow = genderPicker.selectedRow(inComponent: 0)
+        genderTextField.text = viewModel.genderOptions[selectedRow]
+        viewModel.gender = viewModel.genderOptions[selectedRow]
+        genderTextField.resignFirstResponder()
+    }
+    
+    @objc private func genderPickerCancelTapped() {
+        // Değişiklik yapmadan kapat
+        genderTextField.resignFirstResponder()
+    }
+    
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
     
     // Butonlara göre ilgili alan düzenleme durumunu değiştir
@@ -668,14 +609,15 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     }
     
     @objc private func changeGenderTapped() {
-        let isEditing = !editingFields["gender", default: false]
+        let isEditing = !viewModel.editingFields["gender", default: false]
         
         // Eğer değiştirme iptal ediliyorsa, değeri orijinal değere geri al
-        if !isEditing && editingFields["gender", default: false] {
-            genderTextField.text = originalValues["gender"]
+        if !isEditing && viewModel.editingFields["gender", default: false] {
+            genderTextField.text = viewModel.originalValues["gender"]
+            viewModel.gender = viewModel.originalValues["gender"] ?? ""
         }
         
-        editingFields["gender"] = isEditing
+        viewModel.editingFields["gender"] = isEditing
         
         changeGenderButton.setTitle(isEditing ? "İptal" : "Değiştir", for: .normal)
         
@@ -685,18 +627,18 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         }
         
         // Herhangi bir alan düzenleme durumunda ise kaydet butonunu aktif et
-        let anyFieldEditing = editingFields.values.contains(true)
-        updateSaveButtonState(isEnabled: anyFieldEditing || hasProfileImageChanged)
+        updateSaveButtonState(isEnabled: viewModel.isAnyFieldEditing())
     }
     
     private func showGenderPicker() {
         // Sadece picker görünecek, manuel yazım olmayacak
         let actionSheet = UIAlertController(title: "Cinsiyet Seçiniz", message: nil, preferredStyle: .actionSheet)
         
-        for option in genderOptions {
+        for option in viewModel.genderOptions {
             let action = UIAlertAction(title: option, style: .default) { [weak self] _ in
                 guard let self = self else { return }
                 self.genderTextField.text = option
+                self.viewModel.gender = option
             }
             actionSheet.addAction(action)
         }
@@ -706,399 +648,283 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
             
             // İptal edildiğinde, eğer metin boşsa orijinal değere dön
             if self.genderTextField.text?.isEmpty ?? true {
-                self.genderTextField.text = self.originalValues["gender"]
+                self.genderTextField.text = self.viewModel.originalValues["gender"]
+                self.viewModel.gender = self.viewModel.originalValues["gender"] ?? ""
             }
         }
         actionSheet.addAction(cancelAction)
         
         present(actionSheet, animated: true)
-            }
+    }
+    
+    private func toggleFieldEditing(field: String, textField: UITextField, button: UIButton) {
+        let isEditing = !viewModel.editingFields[field, default: false]
+        
+        // Eğer değiştirme iptal ediliyorsa, değeri orijinal değere geri al
+        if !isEditing && viewModel.editingFields[field, default: false] {
+            textField.text = viewModel.originalValues[field]
             
-            private func toggleFieldEditing(field: String, textField: UITextField, button: UIButton) {
-                let isEditing = !editingFields[field, default: false]
-                
-                // Eğer değiştirme iptal ediliyorsa, değeri orijinal değere geri al
-                if !isEditing && editingFields[field, default: false] {
-                    textField.text = originalValues[field]
+            // ViewModel'deki ilgili değeri güncelle
+            switch field {
+            case "name":
+                viewModel.name = viewModel.originalValues[field] ?? ""
+            case "username":
+                viewModel.username = viewModel.originalValues[field] ?? ""
+            case "age":
+                if let ageStr = viewModel.originalValues[field], let age = Int(ageStr) {
+                    viewModel.age = age
+                } else {
+                    viewModel.age = nil
                 }
-                
-                editingFields[field] = isEditing
-                
-                textField.isUserInteractionEnabled = isEditing
-                button.setTitle(isEditing ? "İptal" : "Değiştir", for: .normal)
-                
-                if isEditing {
-                    textField.becomeFirstResponder()
-                }
-                
-                // Herhangi bir alan düzenleme durumunda ise kaydet butonunu aktif et
-                let anyFieldEditing = editingFields.values.contains(true)
-                updateSaveButtonState(isEnabled: anyFieldEditing || hasProfileImageChanged)
-            }
-            
-            // Aktif olmadığında butonun rengini soluklaştıran özellik
-            func updateSaveButtonState(isEnabled: Bool) {
-                saveButton.isEnabled = isEnabled
-                saveButton.alpha = isEnabled ? 1.0 : 0.5 // Eğer buton aktifse tam renk, değilse daha soluk
-            }
-            
-            // saveTapped metodunda şehir validasyonu ekleyelim
-            @objc private func saveTapped() {
-                // Validasyon kontrolleri
-                var validationErrors: [String] = []
-                
-                // İsim-soyisim validasyonu
-                if editingFields["name", default: false] {
-                    if let name = nameTextField.text {
-                        if name.isEmpty {
-                            validationErrors.append("İsim-Soyisim alanı boş bırakılamaz.")
-                        } else {
-                            // Sadece harflerden ve boşluklardan oluşmalı
-                            let allowedCharacterSet = CharacterSet.letters.union(CharacterSet.whitespaces)
-                            if name.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
-                                validationErrors.append("İsim-Soyisim sadece harflerden oluşmalıdır.")
-                            }
-                            
-                            // Boşluk dahil en az 7 karakter olmalı
-                            if name.count < 7 {
-                                validationErrors.append("İsim-Soyisim boşluk dahil en az 7 karakter olmalıdır.")
-                            }
-                            
-                            // Boşluk hariç en az 6 karakter kontrolü
-                            let nonSpaceCharacters = name.filter { !$0.isWhitespace }
-                            if nonSpaceCharacters.count < 6 {
-                                validationErrors.append("İsim-Soyisim boşluk hariç en az 6 karakter olmalıdır.")
-                            }
-                        }
-                    }
-                }
-                
-                // Yaş validasyonu
-                if editingFields["age", default: false] {
-                    if let ageText = ageTextField.text {
-                        if ageText.isEmpty {
-                            validationErrors.append("Yaş alanı boş bırakılamaz.")
-                        } else {
-                            // Sadece rakamlardan oluşmalı
-                            if !ageText.allSatisfy({ $0.isNumber }) {
-                                validationErrors.append("Yaş sadece rakamlardan oluşmalıdır.")
-                            } else if ageText.count > 3 {
-                                validationErrors.append("Yaş en fazla 3 basamaklı olabilir.")
-                            } else if let age = Int(ageText), age < 1 {
-                                validationErrors.append("Yaş 0'dan büyük olmalıdır.")
-                            }
-                        }
-                    }
-                }
-                
-                // Şehir validasyonu
-                if editingFields["city", default: false] {
-                    if let city = cityTextField.text {
-                        if city.isEmpty {
-                            validationErrors.append("Şehir alanı boş bırakılamaz.")
-                        } else {
-                            // Sadece harflerden ve boşluklardan oluşmalı
-                            let allowedCharacterSet = CharacterSet.letters.union(CharacterSet.whitespaces)
-                            if city.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
-                                validationErrors.append("Şehir sadece harflerden oluşmalıdır.")
-                            }
-                            
-                            // En az 3 karakter olmalı
-                            if city.count < 3 {
-                                validationErrors.append("Şehir en az 3 karakter olmalıdır.")
-                            }
-                        }
-                    }
-                }
-                
-                // Validasyon hataları varsa, kullanıcıya göster ve işlemi durdur
-                if !validationErrors.isEmpty {
-                    let errorMessage = validationErrors.joined(separator: "\n")
-                    hataMesaji(titleInput: "Hata", messageInput: errorMessage)
-                    return
-                }
-                
-                guard let user = Auth.auth().currentUser else { return }
-                let db = Firestore.firestore()
-                
-                // Tüm değişiklikleri bir sözlükte topla
-                var updatedData: [String: Any] = [:]
-                
-                if editingFields["name", default: false] {
-                    updatedData["name"] = nameTextField.text ?? ""
-                }
-                
-                if editingFields["username", default: false] {
-                    // Username değişikliği için önce benzersizlik kontrolü yap
-                    let username = usernameTextField.text ?? ""
-                    updatedData["username"] = username
-                    
-                    checkUsernameUniqueness(username: username) { [weak self] isUnique in
-                        guard let self = self else { return }
-                        
-                        if !isUnique {
-                            // Eğer benzersiz değilse hata göster
-                            DispatchQueue.main.async {
-                                self.hataMesaji(titleInput: "Hata", messageInput: "Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.")
-                                // Kullanıcı adını orijinal değere geri döndür
-                                self.usernameTextField.text = self.originalValues["username"]
-                            }
-                            return
-                        }
-                        
-                        // Username benzersizse devam et
-                        self.continueWithSaving(user: user, db: db, updatedData: updatedData)
-                    }
-                    return // Username kontrolü yapılıyorsa, asenkron işlem için burada dur
-                }
-                
-                if editingFields["age", default: false] {
-                    if let ageText = ageTextField.text, let age = Int(ageText) {
-                        updatedData["age"] = age
-                    } else {
-                        hataMesaji(titleInput: "Geçersiz Yaş", messageInput: "Lütfen yaş için geçerli bir sayı girin.")
-                        ageTextField.text = originalValues["age"] // Geçersiz değeri eski haline getir
-                        return
-                    }
-                }
-                
-                if editingFields["city", default: false] {
-                    updatedData["city"] = cityTextField.text ?? ""
-                }
-                
-                if editingFields["gender", default: false] {
-                    updatedData["gender"] = genderTextField.text ?? ""
-                }
-                
-                // Username değişikliği yoksa direkt kaydet
-                continueWithSaving(user: user, db: db, updatedData: updatedData)
-            }
-            
-            private func checkUsernameUniqueness(username: String, completion: @escaping (Bool) -> Void) {
-                guard let currentUser = Auth.auth().currentUser else {
-                    completion(false)
-                    return
-                }
-                
-                let db = Firestore.firestore()
-                db.collection("users").whereField("username", isEqualTo: username).getDocuments { snapshot, error in
-                    guard let documents = snapshot?.documents else {
-                        completion(true) // Hata durumunda veya döküman yoksa benzersiz kabul et
-                        return
-                    }
-                    
-                    // Mevcut kullanıcının dışında aynı username'e sahip başka kullanıcı var mı?
-                    let isUnique = documents.allSatisfy { $0.documentID == currentUser.uid }
-                    completion(isUnique)
-                }
-            }
-            
-            private func continueWithSaving(user: FirebaseAuth.User, db: Firestore, updatedData: [String: Any]) {
-                // Profil fotoğrafı değişimi veya text değişimi varsa güncelleme yap
-                let hasTextChanges = !updatedData.isEmpty
-                
-                // Eğer hiçbir değişiklik yoksa ve profil fotoğrafı da değişmediyse işlemi sonlandır
-                if !hasTextChanges && !hasProfileImageChanged {
-                    updateEditingState(false)
-                    return
-                }
-                
-                // Yükleme göstergesini başlat
-                if hasProfileImageChanged {
-                    imageLoadingIndicator.startAnimating()
-                }
-                
-                // Önce profil fotoğrafını kaydet, sonra diğer verileri güncelle
-                if hasProfileImageChanged {
-                    saveProfileImage(userId: user.uid) { [weak self] success in
-                        guard let self = self else { return }
-                        
-                        if success && hasTextChanges {
-                            // Profil fotoğrafı başarıyla kaydedildiyse ve metin değişiklikleri varsa, metinleri de güncelle
-                            self.updateProfileData(userId: user.uid, db: db, updatedData: updatedData)
-                        } else if success {
-                            // Sadece profil fotoğrafı değiştiyse ve başarıyla kaydedildiyse
-                            DispatchQueue.main.async {
-                                self.imageLoadingIndicator.stopAnimating()
-                                self.hasProfileImageChanged = false
-                                self.updateEditingState(false)
-                                self.hataMesaji(titleInput: "✅ Başarılı", messageInput: "Profil fotoğrafınız başarıyla güncellendi.")
-                            }
-                        } else {
-                            // Profil fotoğrafı kaydedilemezse hata göster
-                            DispatchQueue.main.async {
-                                self.imageLoadingIndicator.stopAnimating()
-                                self.hataMesaji(titleInput: "Hata", messageInput: "Profil fotoğrafı güncellenirken bir hata oluştu.")
-                            }
-                        }
-                    }
-                } else if hasTextChanges {
-                    // Sadece metin değişiklikleri varsa onları güncelle
-                    updateProfileData(userId: user.uid, db: db, updatedData: updatedData)
-                }
-            }
-            
-            private func saveProfileImage(userId: String, completion: @escaping (Bool) -> Void) {
-                let storage = Storage.storage()
-                let storageRef = storage.reference()
-                let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
-                
-                // Eğer profil fotoğrafı kaldırıldıysa
-                if selectedProfileImage == nil {
-                    profileImageRef.delete { error in
-                        if let error = error {
-                            print("Profil fotoğrafı silinemedi: \(error.localizedDescription)")
-                            completion(false)
-                        } else {
-                            completion(true)
-                        }
-                    }
-                    return
-                }
-                
-                // Yeni bir profil fotoğrafı yükleniyorsa
-                guard let image = selectedProfileImage, let imageData = image.jpegData(compressionQuality: 0.7) else {
-                    completion(false)
-                    return
-                }
-                
-                // Resmi Firebase'e yükle
-                let uploadTask = profileImageRef.putData(imageData, metadata: nil) { metadata, error in
-                    if let error = error {
-                        print("Profil fotoğrafı yüklenemedi: \(error.localizedDescription)")
-                        completion(false)
-                        return
-                    }
-                    
-                    // Başarıyla yüklendi
-                    completion(true)
-                }
-            }
-            
-            private func updateProfileData(userId: String, db: Firestore, updatedData: [String: Any]) {
-                // Firestore'da güncelle
-                db.collection("users").document(userId).updateData(updatedData) { [weak self] error in
-                    guard let self = self else { return }
-                    
-                    DispatchQueue.main.async {
-                        self.imageLoadingIndicator.stopAnimating()
-                        
-                        if let error = error {
-                            print("Güncelleme hatası: \(error.localizedDescription)")
-                            self.hataMesaji(titleInput: "Hata", messageInput: "Bilgileriniz güncellenirken bir hata oluştu.")
-                            
-                            // Hata durumunda değerleri eski haline getir
-                            self.resetFieldsToOriginalValues()
-                        } else {
-                            print("Profil başarıyla güncellendi!")
-                            
-                            // Başarılı güncelleme durumunda orijinal değerleri güncelle
-                            if let nameText = self.nameTextField.text {
-                                self.originalValues["name"] = nameText
-                            }
-                            
-                            if let usernameText = self.usernameTextField.text {
-                                self.originalValues["username"] = usernameText
-                            }
-                            
-                            if let ageText = self.ageTextField.text {
-                                self.originalValues["age"] = ageText
-                            }
-                            
-                            if let cityText = self.cityTextField.text {
-                                self.originalValues["city"] = cityText
-                            }
-                            
-                            if let genderText = self.genderTextField.text {
-                                self.originalValues["gender"] = genderText
-                            }
-                            
-                            self.hasProfileImageChanged = false
-                            self.updateEditingState(false)
-                            
-                            // Başarılı güncelleme mesajı göster
-                            self.hataMesaji(titleInput: "✅ Başarılı", messageInput: "Profil bilgileriniz başarıyla güncellendi.")
-                        }
-                    }
-                }
-            }
-            
-            private func resetFieldsToOriginalValues() {
-                nameTextField.text = originalValues["name"]
-                usernameTextField.text = originalValues["username"]
-                ageTextField.text = originalValues["age"]
-                cityTextField.text = originalValues["city"]
-                genderTextField.text = originalValues["gender"]
-            }
-            
-            private func updateEditingState(_ isEditing: Bool) {
-                // Tüm alanları düzenleme dışına çıkar
-                for (field, _) in editingFields {
-                    editingFields[field] = isEditing
-                }
-                
-                // UI'ı güncelle
-                nameTextField.isUserInteractionEnabled = isEditing
-                usernameTextField.isUserInteractionEnabled = isEditing
-                ageTextField.isUserInteractionEnabled = isEditing
-                cityTextField.isUserInteractionEnabled = isEditing
-                genderTextField.isUserInteractionEnabled = isEditing
-                
-                changeNameButton.setTitle("Değiştir", for: .normal)
-                changeUsernameButton.setTitle("Değiştir", for: .normal)
-                changeAgeButton.setTitle("Değiştir", for: .normal)
-                changeCityButton.setTitle("Değiştir", for: .normal)
-                changeGenderButton.setTitle("Değiştir", for: .normal)
-                
-                updateSaveButtonState(isEnabled: isEditing)
-            }
-            
-            @objc private func logoutTapped() {
-                let alert = UIAlertController(title: "Çıkış Yap", message: "Hesabınızdan çıkış yapmak istediğinize emin misiniz?", preferredStyle: .alert)
-                
-                alert.addAction(UIAlertAction(title: "İptal", style: .cancel, handler: nil))
-                alert.addAction(UIAlertAction(title: "Çıkış Yap", style: .destructive, handler: { _ in
-                    self.performLogout()
-                }))
-                
-                present(alert, animated: true, completion: nil)
-            }
-            
-            private func performLogout() {
-                do {
-                    try Auth.auth().signOut()
-                    redirectToLogin()
-                } catch {
-                    print("Çıkış yapılamadı: \(error.localizedDescription)")
-                }
-            }
-            
-            private func redirectToLogin() {
-                let loginVC = LoginViewController()
-                let navController = UINavigationController(rootViewController: loginVC)
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first {
-                    window.rootViewController = navController
-                    window.makeKeyAndVisible()
-                }
-            }
-            
-            private func hataMesaji(titleInput: String, messageInput: String) {
-                let alert = UIAlertController(title: titleInput, message: messageInput, preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "Tamam", style: .default))
-                present(alert, animated: true)
-            }
-            
-            // MARK: - UIPickerView Delegate & DataSource Methods
-            func numberOfComponents(in pickerView: UIPickerView) -> Int {
-                return 1
-            }
-            
-            func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-                return genderOptions.count
-            }
-            
-            func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-                return genderOptions[row]
+            case "city":
+                viewModel.city = viewModel.originalValues[field] ?? ""
+            case "gender":
+                viewModel.gender = viewModel.originalValues[field] ?? ""
+            default:
+                break
             }
         }
+        
+        viewModel.editingFields[field] = isEditing
+        
+        textField.isUserInteractionEnabled = isEditing
+        button.setTitle(isEditing ? "İptal" : "Değiştir", for: .normal)
+        
+        if isEditing {
+            textField.becomeFirstResponder()
+        }
+        
+        // Herhangi bir alan düzenleme durumunda ise kaydet butonunu aktif et
+        updateSaveButtonState(isEnabled: viewModel.isAnyFieldEditing())
+    }
+    
+    // Aktif olmadığında butonun rengini soluklaştıran özellik
+    private func updateSaveButtonState(isEnabled: Bool) {
+        saveButton.isEnabled = isEnabled
+        saveButton.alpha = isEnabled ? 1.0 : 0.5 // Eğer buton aktifse tam renk, değilse daha soluk
+    }
+    
+    @objc private func saveTapped() {
+        // TextField'lardaki değerleri ViewModel'e aktar
+        if viewModel.editingFields["name", default: false] {
+            viewModel.name = nameTextField.text ?? ""
+        }
+        
+        if viewModel.editingFields["username", default: false] {
+            viewModel.username = usernameTextField.text ?? ""
+        }
+        
+        if viewModel.editingFields["age", default: false] {
+            if let ageText = ageTextField.text, let age = Int(ageText) {
+                viewModel.age = age
+            } else {
+                viewModel.age = nil
+            }
+        }
+        
+        if viewModel.editingFields["city", default: false] {
+            viewModel.city = cityTextField.text ?? ""
+        }
+        
+        // Validasyon kontrolleri
+        let validationErrors = viewModel.validateFields()
+        
+        // Validasyon hataları varsa, kullanıcıya göster ve işlemi durdur
+        if !validationErrors.isEmpty {
+            let errorMessage = validationErrors.joined(separator: "\n")
+            hataMesaji(titleInput: "Hata", messageInput: errorMessage)
+            return
+        }
+        
+        guard let user = Auth.auth().currentUser else { return }
+        
+        // Tüm değişiklikleri bir sözlükte topla
+        let updatedData = viewModel.collectUpdatedData()
+        
+        // Username değişikliği için önce benzersizlik kontrolü yap
+        if viewModel.editingFields["username", default: false] {
+            viewModel.checkUsernameUniqueness(username: viewModel.username) { [weak self] isUnique in
+                guard let self = self else { return }
+                
+                if !isUnique {
+                    // Eğer benzersiz değilse hata göster
+                    DispatchQueue.main.async {
+                        self.hataMesaji(titleInput: "Hata", messageInput: "Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.")
+                        // Kullanıcı adını orijinal değere geri döndür
+                        self.usernameTextField.text = self.viewModel.originalValues["username"]
+                        self.viewModel.username = self.viewModel.originalValues["username"] ?? ""
+                    }
+                } else {
+                    // Username benzersizse devam et
+                    self.continueWithSaving(user: user, updatedData: updatedData)
+                }
+            }
+        } else {
+            // Username değişikliği yoksa direkt kaydet
+            continueWithSaving(user: user, updatedData: updatedData)
+        }
+    }
+    
+    private func continueWithSaving(user: FirebaseAuth.User, updatedData: [String: Any]) {
+        // Profil fotoğrafı değişimi veya text değişimi varsa güncelleme yap
+        let hasTextChanges = !updatedData.isEmpty
+        
+        // Eğer hiçbir değişiklik yoksa ve profil fotoğrafı da değişmediyse işlemi sonlandır
+        if !hasTextChanges && !viewModel.hasProfileImageChanged {
+            updateEditingState(false)
+            return
+        }
+        
+        // Yükleme göstergesini başlat
+        if viewModel.hasProfileImageChanged {
+            imageLoadingIndicator.startAnimating()
+        }
+        
+        // Önce profil fotoğrafını kaydet, sonra diğer verileri güncelle
+        if viewModel.hasProfileImageChanged {
+            viewModel.saveProfileImage(userId: user.uid) { [weak self] success in
+                guard let self = self else { return }
+                
+                if success && hasTextChanges {
+                    // Profil fotoğrafı başarıyla kaydedildiyse ve metin değişiklikleri varsa, metinleri de güncelle
+                    self.updateProfileData(userId: user.uid, updatedData: updatedData)
+                } else if success {
+                    // Sadece profil fotoğrafı değiştiyse ve başarıyla kaydedildiyse
+                    DispatchQueue.main.async {
+                        self.imageLoadingIndicator.stopAnimating()
+                        self.viewModel.hasProfileImageChanged = false
+                        self.updateEditingState(false)
+                        self.hataMesaji(titleInput: "✅ Başarılı", messageInput: "Profil fotoğrafınız başarıyla güncellendi.")
+                    }
+                } else {
+                    // Profil fotoğrafı kaydedilemezse hata göster
+                    DispatchQueue.main.async {
+                        self.imageLoadingIndicator.stopAnimating()
+                        self.hataMesaji(titleInput: "Hata", messageInput: "Profil fotoğrafı güncellenirken bir hata oluştu.")
+                    }
+                }
+            }
+        } else if hasTextChanges {
+            // Sadece metin değişiklikleri varsa onları güncelle
+            updateProfileData(userId: user.uid, updatedData: updatedData)
+        }
+    }
+    
+    private func updateProfileData(userId: String, updatedData: [String: Any]) {
+        viewModel.updateProfileData(userId: userId, updatedData: updatedData) { [weak self] success in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                self.imageLoadingIndicator.stopAnimating()
+                
+                if success {
+                    // Başarılı güncelleme durumunda orijinal değerleri güncelle
+                    self.viewModel.updateOriginalValues()
+                    self.viewModel.hasProfileImageChanged = false
+                    self.updateEditingState(false)
+                    
+                    // Başarılı güncelleme mesajı göster
+                    self.hataMesaji(titleInput: "✅ Başarılı", messageInput: "Profil bilgileriniz başarıyla güncellendi.")
+                } else {
+                    // Hata durumunda değerleri eski haline getir
+                    self.viewModel.resetFieldsToOriginalValues()
+                    self.updateUIWithUserData()
+                    self.hataMesaji(titleInput: "Hata", messageInput: "Bilgileriniz güncellenirken bir hata oluştu.")
+                }
+            }
+        }
+    }
+    
+    private func updateEditingState(_ isEditing: Bool) {
+        // Tüm alanları düzenleme dışına çıkar
+        for (field, _) in viewModel.editingFields {
+            viewModel.editingFields[field] = isEditing
+        }
+        
+        // UI'ı güncelle
+        nameTextField.isUserInteractionEnabled = isEditing
+        usernameTextField.isUserInteractionEnabled = isEditing
+        ageTextField.isUserInteractionEnabled = isEditing
+        cityTextField.isUserInteractionEnabled = isEditing
+        genderTextField.isUserInteractionEnabled = isEditing
+        
+        changeNameButton.setTitle("Değiştir", for: .normal)
+        changeUsernameButton.setTitle("Değiştir", for: .normal)
+        changeAgeButton.setTitle("Değiştir", for: .normal)
+        changeCityButton.setTitle("Değiştir", for: .normal)
+        changeGenderButton.setTitle("Değiştir", for: .normal)
+        
+        updateSaveButtonState(isEnabled: isEditing)
+    }
+    
+    @objc private func logoutTapped() {
+        let alert = UIAlertController(title: "Çıkış Yap", message: "Hesabınızdan çıkış yapmak istediğinize emin misiniz?", preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "İptal", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "Çıkış Yap", style: .destructive, handler: { [weak self] _ in
+            self?.performLogout()
+        }))
+        
+        present(alert, animated: true, completion: nil)
+    }
+    
+    private func performLogout() {
+        if viewModel.logout() {
+            redirectToLogin()
+        } else {
+            hataMesaji(titleInput: "Hata", messageInput: "Çıkış yapılırken bir hata oluştu.")
+        }
+    }
+    
+    private func redirectToLogin() {
+        let loginVC = LoginViewController()
+        let navController = UINavigationController(rootViewController: loginVC)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            window.rootViewController = navController
+            window.makeKeyAndVisible()
+        }
+    }
+    
+    private func hataMesaji(titleInput: String, messageInput: String) {
+        let alert = UIAlertController(title: titleInput, message: messageInput, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Tamam", style: .default))
+        present(alert, animated: true)
+    }
+    
+    // MARK: - UIImagePickerController Delegate Methods
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        if let editedImage = info[.editedImage] as? UIImage {
+            viewModel.selectedProfileImage = editedImage
+            profileImageView.image = editedImage
+            viewModel.hasProfileImageChanged = true
+            updateSaveButtonState(isEnabled: true)
+        } else if let originalImage = info[.originalImage] as? UIImage {
+            viewModel.selectedProfileImage = originalImage
+            profileImageView.image = originalImage
+            viewModel.hasProfileImageChanged = true
+            updateSaveButtonState(isEnabled: true)
+        }
+        
+        dismiss(animated: true)
+    }
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        dismiss(animated: true)
+    }
+    
+    // MARK: - UIPickerView Delegate & DataSource Methods
+    
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return viewModel.genderOptions.count
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        return viewModel.genderOptions[row]
+    }
+}
