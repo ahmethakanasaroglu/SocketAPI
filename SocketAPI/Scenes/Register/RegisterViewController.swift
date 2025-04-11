@@ -16,6 +16,32 @@ class RegisterViewController: UIViewController {
         return label
     }()
     
+    // MARK: - Yükleniyor Göstergesi
+    private let loadingView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
+        return view
+    }()
+    
+    private let activityIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.color = .white
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+    
+    private let loadingLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Kayıt yapılıyor..."
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16)
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     private let nameTextField: UITextField = {
         let textField = UITextField()
         textField.placeholder = "Adınız - Soyadınız"
@@ -162,6 +188,7 @@ class RegisterViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = UIColor.systemBackground
         setupUI()
+        setupLoadingView()
         setupPasswordVisibilityButtons()
         bindViewModel()
         setupTextFieldDelegates()
@@ -203,6 +230,47 @@ class RegisterViewController: UIViewController {
             stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
         ])
+    }
+    
+    // MARK: - Loading View Setup
+    private func setupLoadingView() {
+        view.addSubview(loadingView)
+        loadingView.addSubview(activityIndicator)
+        loadingView.addSubview(loadingLabel)
+        
+        NSLayoutConstraint.activate([
+            loadingView.topAnchor.constraint(equalTo: view.topAnchor),
+            loadingView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            loadingView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            loadingView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            activityIndicator.centerXAnchor.constraint(equalTo: loadingView.centerXAnchor),
+            activityIndicator.centerYAnchor.constraint(equalTo: loadingView.centerYAnchor, constant: -20),
+            
+            loadingLabel.topAnchor.constraint(equalTo: activityIndicator.bottomAnchor, constant: 16),
+            loadingLabel.centerXAnchor.constraint(equalTo: loadingView.centerXAnchor),
+            loadingLabel.leadingAnchor.constraint(equalTo: loadingView.leadingAnchor, constant: 20),
+            loadingLabel.trailingAnchor.constraint(equalTo: loadingView.trailingAnchor, constant: -20)
+        ])
+    }
+    
+    // MARK: - Show/Hide Loading
+    private func showLoading() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.loadingView.isHidden = false
+            self.activityIndicator.startAnimating()
+            self.view.isUserInteractionEnabled = false
+        }
+    }
+    
+    private func hideLoading() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.loadingView.isHidden = true
+            self.activityIndicator.stopAnimating()
+            self.view.isUserInteractionEnabled = true
+        }
     }
     
     // MARK: - Password Visibility Buttons Setup
@@ -276,6 +344,9 @@ class RegisterViewController: UIViewController {
             guard let self = self else { return }
             
             DispatchQueue.main.async {
+                // Yükleme göstergesini gizle
+                self.hideLoading()
+                
                 // Başarılı kayıt mesajı göster
                 let alert = UIAlertController(title: "✅ Başarılı",
                                               message: "Kayıt işlemi başarıyla tamamlandı!",
@@ -298,6 +369,10 @@ class RegisterViewController: UIViewController {
             guard let self = self else { return }
             
             DispatchQueue.main.async {
+                // Yükleme göstergesini gizle
+                self.hideLoading()
+                
+                // Hata mesajını göster
                 self.hataMesaji(titleInput: title, messageInput: message)
             }
         }
@@ -448,6 +523,9 @@ class RegisterViewController: UIViewController {
             return
         }
         
+        // Yükleniyor göstergesini göster
+        showLoading()
+        
         // Tüm kontroller geçildiyse, kayıt işlemini yap
         guard let name = nameTextField.text,
               let username = usernameTextField.text,
@@ -456,6 +534,7 @@ class RegisterViewController: UIViewController {
               let confirmPassword = confirmPasswordTextField.text, // YENİ
               let ageText = ageTextField.text, let age = Int(ageText),
               let city = cityTextField.text else {
+            hideLoading()
             return
         }
         
