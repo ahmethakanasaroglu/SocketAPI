@@ -18,6 +18,7 @@ struct ChatMessage {
 class ChatViewModel: WebSocketManagerDelegate {
     private let webSocketManager = WebSocketManager()
     var messages: [ChatMessage] = []
+    var onMessageDeleted: ((Int) -> Void)?
     
     // Sadece tam liste yenilemesi için kullanılacak
     var onMessageReceived: (() -> Void)?
@@ -231,15 +232,21 @@ class ChatViewModel: WebSocketManagerDelegate {
     
     // Mesaj silme işlemleri
     func deleteMessage(at index: Int) {
-        guard index >= 0 && index < messages.count else { return }
-        
-        let messageId = messages[index].messageId
-        webSocketManager.deleteMessage(messageId: messageId)
-        
-        // Mesajı yerel listeden de kaldır
-        messages.remove(at: index)
-        onMessageReceived?()
-    }
+
+            guard index >= 0 && index < messages.count else { return }
+            
+            let messageId = messages[index].messageId
+            webSocketManager.deleteMessage(messageId: messageId)
+            
+            // Mesajı yerel listeden kaldır
+            messages.remove(at: index)
+            
+            // YENİ: Silinen mesaj için özel callback'i çağır
+            onMessageDeleted?(index)
+            
+            // ESKİ: Tüm tabloyu yenileme - artık gerek yok, yorum satırına al veya sil
+            // onMessageReceived?()
+        }
     
     func deleteAllMessages(completion: @escaping (Bool) -> Void) {
         webSocketManager.deleteAllMessages { [weak self] success in

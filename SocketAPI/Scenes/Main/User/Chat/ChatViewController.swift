@@ -49,34 +49,36 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         navigationItem.rightBarButtonItem = clearButton
         
         viewModel.onMessageReceived = { [weak self] in
-                DispatchQueue.main.async {
-                    self?.tableView.reloadData()
-                    
-                    // Yeni mesaj geldiğinde otomatik olarak en alta kaydır
-                    if let self = self {
-                        let count = self.viewModel.messages.count
-                        if count > 0 {
-                            let indexPath = IndexPath(row: count - 1, section: 0)
-                            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+                    DispatchQueue.main.async {
+                        self?.tableView.reloadData()
+                        
+                        // Yeni mesaj geldiğinde otomatik olarak en alta kaydır
+                        if let self = self {
+                            let count = self.viewModel.messages.count
+                            if count > 0 {
+                                let indexPath = IndexPath(row: count - 1, section: 0)
+                                self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+                            }
                         }
                     }
                 }
-            }
         
         // Sadece tepki güncellemelerinde çağrılır
-            viewModel.onReactionUpdated = { [weak self] (index, reaction) in
-                DispatchQueue.main.async {
-                    // Sadece tepkisi değişen hücreyi güncelle
-                    let indexPath = IndexPath(row: index, section: 0)
-                    self?.tableView.reloadRows(at: [indexPath], with: .none)
+        viewModel.onReactionUpdated = { [weak self] (index, reaction) in
+                    DispatchQueue.main.async {
+                        // Sadece tepkisi değişen hücreyi güncelle
+                        let indexPath = IndexPath(row: index, section: 0)
+                        self?.tableView.reloadRows(at: [indexPath], with: .none)
+                    }
                 }
-            }
         
-        viewModel.onMessagesDeleted = { [weak self] in
-                DispatchQueue.main.async {
-                    self?.tableView.reloadData()
+        viewModel.onMessageDeleted = { [weak self] index in
+                    DispatchQueue.main.async {
+                        // Tablodaki ilgili satırı sil (animasyonlu)
+                        let indexPath = IndexPath(row: index, section: 0)
+                        self?.tableView.deleteRows(at: [indexPath], with: .fade)
+                    }
                 }
-            }
         
         // Eğer otomatik bir geri butonu istiyorsanız:
         self.navigationItem.leftBarButtonItem = UIBarButtonItem(
