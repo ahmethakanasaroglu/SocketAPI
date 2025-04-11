@@ -67,13 +67,19 @@ class LoginViewController: UIViewController {
         textField.returnKeyType = .next
         textField.paddingLeft(12)
         
-        // Email ikonu ekle
-        let emailIcon = UIImageView(frame: CGRect(x: 0, y: 0, width: 20, height: 20))
+        // Email ikonu ekle (3 boşluk sağa)
+        let emailIcon = UIImageView(frame: CGRect(x: 12, y: 0, width: 20, height: 20))
         emailIcon.image = UIImage(systemName: "envelope.fill")
         emailIcon.tintColor = .systemBlue.withAlphaComponent(0.7)
         emailIcon.contentMode = .scaleAspectFit
-        let emailIconContainerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 20))
+        
+        // Konteyner görünümü oluştur
+        let emailIconContainerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 50))
         emailIconContainerView.addSubview(emailIcon)
+        
+        // İkonu dikey olarak ortala
+        emailIcon.center.y = emailIconContainerView.center.y
+        
         textField.leftView = emailIconContainerView
         textField.leftViewMode = .always
         
@@ -95,13 +101,19 @@ class LoginViewController: UIViewController {
         textField.returnKeyType = .done
         textField.paddingLeft(12)
         
-        // Şifre ikonu ekle
-        let passwordIcon = UIImageView(frame: CGRect(x: 0, y: 0, width: 20, height: 20))
+        // Şifre ikonu ekle (2 boşluk sağa)
+        let passwordIcon = UIImageView(frame: CGRect(x: 12, y: 0, width: 20, height: 20))
         passwordIcon.image = UIImage(systemName: "lock.fill")
         passwordIcon.tintColor = .systemBlue.withAlphaComponent(0.7)
         passwordIcon.contentMode = .scaleAspectFit
-        let passwordIconContainerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 20))
+        
+        // Konteyner görünümü oluştur
+        let passwordIconContainerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 50))
         passwordIconContainerView.addSubview(passwordIcon)
+        
+        // İkonu dikey olarak ortala
+        passwordIcon.center.y = passwordIconContainerView.center.y
+        
         textField.leftView = passwordIconContainerView
         textField.leftViewMode = .always
         
@@ -112,7 +124,7 @@ class LoginViewController: UIViewController {
         showPasswordButton.frame = CGRect(x: 0, y: 0, width: 30, height: 30)
         showPasswordButton.addTarget(self, action: #selector(togglePasswordVisibility), for: .touchUpInside)
         
-        let rightView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 30))
+        let rightView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 50))
         rightView.addSubview(showPasswordButton)
         showPasswordButton.center = rightView.center
         
@@ -185,6 +197,22 @@ class LoginViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         gradientLayer.frame = view.bounds
+        
+        // İkonların dikey hizalaması için viewDidLayoutSubviews içinde kontrol ediyoruz
+        adjustIconVerticalPositions()
+    }
+    
+    // İkonların dikey hizalaması için yardımcı metod
+    private func adjustIconVerticalPositions() {
+        if let emailContainerView = emailOrUsernameTextField.leftView as? UIView,
+           let emailIcon = emailContainerView.subviews.first as? UIImageView {
+            emailIcon.center.y = emailContainerView.bounds.height / 2
+        }
+        
+        if let passwordContainerView = passwordTextField.leftView as? UIView,
+           let passwordIcon = passwordContainerView.subviews.first as? UIImageView {
+            passwordIcon.center.y = passwordContainerView.bounds.height / 2
+        }
     }
     
     func setupGradientBackground() {
