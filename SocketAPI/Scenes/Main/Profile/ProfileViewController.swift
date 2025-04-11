@@ -44,6 +44,15 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         return indicator
     }()
     
+    // Yeni bir activity indicator ekliyoruz - kaydetme işlemi için
+    private lazy var saveLoadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.hidesWhenStopped = true
+        indicator.color = .white
+        return indicator
+    }()
+    
     // Form Fields
     private lazy var nameTextField = createTextField(placeholder: "İsim - Soyisim")
     private lazy var usernameTextField = createTextField(placeholder: "Kullanıcı Adı")
@@ -179,11 +188,18 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         contentView.addSubview(saveButton)
         contentView.addSubview(logoutButton)
         
+        // Save butonuna aktivite göstergesini ekleyelim
+        saveButton.addSubview(saveLoadingIndicator)
+        
         NSLayoutConstraint.activate([
             saveButton.topAnchor.constraint(equalTo: fieldsContainer.bottomAnchor, constant: 40),
             saveButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             saveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             saveButton.heightAnchor.constraint(equalToConstant: 54),
+            
+            // Save aktivite göstergesi için constraint'ler
+            saveLoadingIndicator.centerYAnchor.constraint(equalTo: saveButton.centerYAnchor),
+            saveLoadingIndicator.centerXAnchor.constraint(equalTo: saveButton.centerXAnchor),
             
             logoutButton.topAnchor.constraint(equalTo: saveButton.bottomAnchor, constant: 20),
             logoutButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
@@ -419,7 +435,7 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     
     private func showImagePicker(sourceType: UIImagePickerController.SourceType) {
         if (sourceType == .camera && !UIImagePickerController.isSourceTypeAvailable(.camera)) ||
-           (sourceType == .photoLibrary && !UIImagePickerController.isSourceTypeAvailable(.photoLibrary)) {
+            (sourceType == .photoLibrary && !UIImagePickerController.isSourceTypeAvailable(.photoLibrary)) {
             showAlert(title: "Hata", message: sourceType == .camera ? "Kamera kullanılamıyor." : "Fotograf galerisi kullanılamıyor.")
             return
         }
@@ -602,7 +618,60 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         saveButton.alpha = isEnabled ? 1.0 : 0.5
     }
     
+    // Kaydetme işlemi başladığında UI'ı güncelleme
+    private func showSavingState() {
+        // Kaydet butonunun metnini gizle ve activity indicator'ı göster
+        saveButton.setTitle("", for: .normal)
+        saveLoadingIndicator.startAnimating()
+        
+        // Butonları ve alanları devre dışı bırak
+        saveButton.isEnabled = false
+        logoutButton.isEnabled = false
+        
+        // Tüm değiştir butonlarını devre dışı bırak
+        changeNameButton.isEnabled = false
+        changeUsernameButton.isEnabled = false
+        changeAgeButton.isEnabled = false
+        changeCityButton.isEnabled = false
+        changeGenderButton.isEnabled = false
+        
+        // Alanların etkileşimini devre dışı bırak
+        nameTextField.isUserInteractionEnabled = false
+        usernameTextField.isUserInteractionEnabled = false
+        ageTextField.isUserInteractionEnabled = false
+        cityTextField.isUserInteractionEnabled = false
+        genderTextField.isUserInteractionEnabled = false
+        
+        // Profil fotoğrafını devre dışı bırak
+        profileImageView.isUserInteractionEnabled = false
+    }
+    
+    // Kaydetme işlemi tamamlandığında UI'ı güncelleme
+    private func hideSavingState() {
+        // Kaydet butonunu normal durumuna getir
+        saveButton.setTitle("Kaydet", for: .normal)
+        saveLoadingIndicator.stopAnimating()
+        
+        // Butonları etkinleştir
+        saveButton.isEnabled = viewModel.isAnyFieldEditing()
+        saveButton.alpha = viewModel.isAnyFieldEditing() ? 1.0 : 0.5
+        logoutButton.isEnabled = true
+        
+        // Değiştir butonlarını normal durumlarına getir
+        changeNameButton.isEnabled = true
+        changeUsernameButton.isEnabled = true
+        changeAgeButton.isEnabled = true
+        changeCityButton.isEnabled = true
+        changeGenderButton.isEnabled = true
+        
+        // Profil fotoğrafını etkinleştir
+        profileImageView.isUserInteractionEnabled = true
+    }
+    
     @objc private func saveTapped() {
+        // Kaydetme işlemi başlamadan önce UI'ı güncelle
+        showSavingState()
+        
         // Update model from textfields
         if viewModel.editingFields["name", default: false] { viewModel.name = nameTextField.text ?? "" }
         if viewModel.editingFields["username", default: false] { viewModel.username = usernameTextField.text ?? "" }
@@ -618,11 +687,16 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         // Validate fields
         let validationErrors = viewModel.validateFields()
         if !validationErrors.isEmpty {
+            hideSavingState() // Hata durumunda yükleme göstergesini kapat
             showAlert(title: "Hata", message: validationErrors.joined(separator: "\n"))
             return
         }
         
-        guard let user = Auth.auth().currentUser else { return }
+        guard let user = Auth.auth().currentUser else {
+            hideSavingState() // Hata durumunda yükleme göstergesini kapat
+            return
+        }
+        
         let updatedData = viewModel.collectUpdatedData()
         
         // Check username uniqueness if needed
@@ -632,6 +706,7 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
                 
                 if !isUnique {
                     DispatchQueue.main.async {
+                        self.hideSavingState() // Hata durumunda yükleme göstergesini kapat
                         self.showAlert(title: "Hata", message: "Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.")
                         self.usernameTextField.text = self.viewModel.originalValues["username"]
                         self.viewModel.username = self.viewModel.originalValues["username"] ?? ""
@@ -649,13 +724,14 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         let hasTextChanges = !updatedData.isEmpty
         
         if !hasTextChanges && !viewModel.hasProfileImageChanged {
-            updateEditingState(false)
+            DispatchQueue.main.async {
+                self.hideSavingState() // İşlem tamamlandığında yükleme göstergesini kapat
+                self.updateEditingState(false)
+            }
             return
         }
         
         if viewModel.hasProfileImageChanged {
-            imageLoadingIndicator.startAnimating()
-            
             viewModel.saveProfileImage(userId: user.uid) { [weak self] success in
                 guard let self = self else { return }
                 
@@ -663,14 +739,14 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
                     self.updateProfileData(userId: user.uid, updatedData: updatedData)
                 } else if success {
                     DispatchQueue.main.async {
-                        self.imageLoadingIndicator.stopAnimating()
+                        self.hideSavingState() // İşlem tamamlandığında yükleme göstergesini kapat
                         self.viewModel.hasProfileImageChanged = false
                         self.updateEditingState(false)
                         self.showAlert(title: "✅ Başarılı", message: "Profil fotoğrafınız başarıyla güncellendi.")
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.imageLoadingIndicator.stopAnimating()
+                        self.hideSavingState() // Hata durumunda yükleme göstergesini kapat
                         self.showAlert(title: "Hata", message: "Profil fotoğrafı güncellenirken bir hata oluştu.")
                     }
                 }
@@ -685,7 +761,7 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
             guard let self = self else { return }
             
             DispatchQueue.main.async {
-                self.imageLoadingIndicator.stopAnimating()
+                self.hideSavingState() // İşlem tamamlandığında yükleme göstergesini kapat
                 
                 if success {
                     self.viewModel.updateOriginalValues()
