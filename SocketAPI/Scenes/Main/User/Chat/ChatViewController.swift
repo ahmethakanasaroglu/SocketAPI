@@ -49,25 +49,34 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
         navigationItem.rightBarButtonItem = clearButton
         
         viewModel.onMessageReceived = { [weak self] in
-            DispatchQueue.main.async {
-                self?.tableView.reloadData()
-                
-                // Yeni mesaj geldiğinde otomatik olarak en alta kaydır
-                if let self = self {
-                    let count = self.viewModel.messages.count
-                    if count > 0 {
-                        let indexPath = IndexPath(row: count - 1, section: 0)
-                        self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+                DispatchQueue.main.async {
+                    self?.tableView.reloadData()
+                    
+                    // Yeni mesaj geldiğinde otomatik olarak en alta kaydır
+                    if let self = self {
+                        let count = self.viewModel.messages.count
+                        if count > 0 {
+                            let indexPath = IndexPath(row: count - 1, section: 0)
+                            self.tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+                        }
                     }
                 }
             }
-        }
+        
+        // Sadece tepki güncellemelerinde çağrılır
+            viewModel.onReactionUpdated = { [weak self] (index, reaction) in
+                DispatchQueue.main.async {
+                    // Sadece tepkisi değişen hücreyi güncelle
+                    let indexPath = IndexPath(row: index, section: 0)
+                    self?.tableView.reloadRows(at: [indexPath], with: .none)
+                }
+            }
         
         viewModel.onMessagesDeleted = { [weak self] in
-            DispatchQueue.main.async {
-                self?.tableView.reloadData()
+                DispatchQueue.main.async {
+                    self?.tableView.reloadData()
+                }
             }
-        }
         
         // Eğer otomatik bir geri butonu istiyorsanız:
         self.navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -297,41 +306,32 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
     private func loadUserProfileImage() {
         guard let userId = selectedUser?.uid else { return }
         
-        let storage = Storage.storage()
-        let storageRef = storage.reference()
-        let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
+        // NavigationBar'daki profil resmi component'ini bul
+        guard let titleView = navigationItem.titleView,
+              let profileImageView = titleView.viewWithTag(100) as? UIImageView else { return }
         
-        // Önce kullanıcının bir profil fotoğrafı olup olmadığını kontrol et
-        profileImageRef.downloadURL { [weak self] (url, error) in
+        // Yükleme başladı
+        UIView.animate(withDuration: 0.2) {
+            profileImageView.alpha = 0.5
+        }
+        
+        // Cache kullanarak profil resmini yükle
+        viewModel.loadProfileImage(userId: userId) { [weak self] image in
             guard let self = self else { return }
             
-            if let error = error {
-                print("Profil resmi yüklenirken hata: \(error.localizedDescription)")
-                // Hata varsa varsayılan resim olarak bırak
-                return
-            }
-            
-            guard let url = url else { return }
-            
-            // Profil fotoğrafını indir
-            let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
-                guard let data = data, error == nil else {
-                    print("Profil resmi indirme hatası: \(error?.localizedDescription ?? "Bilinmeyen hata")")
-                    return
+            DispatchQueue.main.async {
+                UIView.animate(withDuration: 0.2) {
+                    profileImageView.alpha = 1.0
                 }
                 
-                if let image = UIImage(data: data) {
-                    DispatchQueue.main.async {
-                        // Navigasyon çubuğundaki resmi güncelle
-                        if let titleView = self.navigationItem.titleView as? UIView,
-                           let profileImageView = titleView.viewWithTag(100) as? UIImageView {
-                            profileImageView.image = image
-                            profileImageView.tintColor = .clear
-                        }
-                    }
+                if let image = image {
+                    profileImageView.image = image
+                    profileImageView.tintColor = .clear
+                } else {
+                    profileImageView.image = UIImage(systemName: "person.circle.fill")
+                    profileImageView.tintColor = .systemBlue
                 }
             }
-            task.resume()
         }
     }
     
@@ -502,6 +502,9 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
                     } else {
                         self.viewModel.setReaction(at: indexPath.row, reaction: emoji)
                     }
+                    
+                    // NOT: Hücre güncellemesi artık onReactionUpdated callback'i ile yapılacak
+                    // Buradan hücreyi manuel olarak güncellemeye gerek yok
                 }
             }
             
@@ -518,6 +521,7 @@ class ChatViewController: UIViewController, UITableViewDelegate, UITableViewData
             if message.reaction != nil {
                 let removeReactionAction = UIAction(title: "Tepkiyi Kaldır", image: UIImage(systemName: "xmark.circle")) { [weak self] _ in
                     self?.viewModel.setReaction(at: indexPath.row, reaction: nil)
+                    // NOT: Hücre güncellemesi artık onReactionUpdated callback'i ile yapılacak
                 }
                 
                 menuItems = [

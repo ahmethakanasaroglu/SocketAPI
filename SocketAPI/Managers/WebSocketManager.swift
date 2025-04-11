@@ -5,6 +5,10 @@ import FirebaseFirestore
 protocol WebSocketManagerDelegate: AnyObject {
     func didReceiveMessage(_ message: String, isFromCurrentUser: Bool, messageId: String)
     func didLoadMessages(_ messages: [(text: String, isFromCurrentUser: Bool, messageId: String)])
+    
+    // Emoji tepkileri için yeni delegate metodları
+    func didReceiveMessage(_ message: String, isFromCurrentUser: Bool, messageId: String, timestamp: Date?, reaction: String?)
+    func didLoadMessages(_ messages: [(text: String, isFromCurrentUser: Bool, messageId: String, timestamp: Date?, reaction: String?)])
 }
 
 class WebSocketManager: NSObject, WebSocketDelegate {
@@ -16,6 +20,11 @@ class WebSocketManager: NSObject, WebSocketDelegate {
     private var currentUserID: String = ""
     private var otherUserID: String = ""
     private var listener: ListenerRegistration?
+    
+    // Channel ID'yi dış sınıfların erişebilmesi için property ekledim
+    var channelId: String? {
+        return currentChannelId.isEmpty ? nil : currentChannelId
+    }
 
     
     override init() {
@@ -45,7 +54,6 @@ class WebSocketManager: NSObject, WebSocketDelegate {
         // Firestore'dan önceki mesajları yükle
         loadMessagesFromFirestore()
         listenToMessagesFromFirestore()
-
     }
     
     func connect() {
@@ -66,6 +74,36 @@ class WebSocketManager: NSObject, WebSocketDelegate {
         
         // Mesajı Firestore'a kaydet
         saveMessageToFirestore(message: message, isFromCurrentUser: true)
+    }
+    
+    // Mesaja tepki eklemek için yeni fonksiyon
+    func updateMessageReaction(messageId: String, reaction: String?) {
+        guard !currentChannelId.isEmpty else {
+            print("ChannelID boş, tepki güncellenemiyor")
+            return
+        }
+        
+        let messageRef = db.collection("chats").document(currentChannelId).collection("messages").document(messageId)
+        
+        if let reaction = reaction {
+            // Tepki ekle veya güncelle
+            messageRef.updateData(["reaction": reaction]) { error in
+                if let error = error {
+                    print("Tepki eklenirken hata oluştu: \(error.localizedDescription)")
+                } else {
+                    print("Tepki başarıyla eklendi: \(reaction)")
+                }
+            }
+        } else {
+            // Tepkiyi kaldır
+            messageRef.updateData(["reaction": FieldValue.delete()]) { error in
+                if let error = error {
+                    print("Tepki kaldırılırken hata oluştu: \(error.localizedDescription)")
+                } else {
+                    print("Tepki başarıyla kaldırıldı")
+                }
+            }
+        }
     }
     
     // WebSocket olaylarını dinleyen fonksiyon
@@ -110,18 +148,29 @@ class WebSocketManager: NSObject, WebSocketDelegate {
 
                 guard let self = self, let documents = snapshot?.documents else { return }
 
-                var loadedMessages: [(text: String, isFromCurrentUser: Bool, messageId: String)] = []
+                var loadedMessages: [(text: String, isFromCurrentUser: Bool, messageId: String, timestamp: Date?, reaction: String?)] = []
 
                 for document in documents {
                     let data = document.data()
                     if let message = data["message"] as? String,
                        let senderId = data["senderId"] as? String {
                         let isFromCurrentUser = (senderId == self.currentUserID)
-                        loadedMessages.append((message, isFromCurrentUser, document.documentID))
+                        let messageId = document.documentID
+                        
+                        // Timestamp'i Date'e dönüştür
+                        var timestamp: Date? = nil
+                        if let firestoreTimestamp = data["timestamp"] as? Timestamp {
+                            timestamp = firestoreTimestamp.dateValue()
+                        }
+                        
+                        // Tepki bilgisini al
+                        let reaction = data["reaction"] as? String
+                        
+                        loadedMessages.append((message, isFromCurrentUser, messageId, timestamp, reaction))
                     }
                 }
 
-                // ViewController'da bu method'ı implement edeceğiz
+                // Yeni delegate metodunu çağır
                 self.delegate?.didLoadMessages(loadedMessages)
             }
     }
@@ -168,7 +217,7 @@ class WebSocketManager: NSObject, WebSocketDelegate {
 
 
     
-    // Firestore'dan mesajları yükleme
+    // Firestore'dan mesajları yükleme - tepki (emoji) desteği eklenmiş versiyon
     private func loadMessagesFromFirestore() {
         guard !currentChannelId.isEmpty else {
             print("ChannelID boş, mesajlar yüklenemiyor")
@@ -188,14 +237,25 @@ class WebSocketManager: NSObject, WebSocketDelegate {
                     return
                 }
                 
-                var loadedMessages: [(text: String, isFromCurrentUser: Bool, messageId: String)] = []
+                var loadedMessages: [(text: String, isFromCurrentUser: Bool, messageId: String, timestamp: Date?, reaction: String?)] = []
                 
                 for document in documents {
                     let data = document.data()
                     if let message = data["message"] as? String,
                        let senderId = data["senderId"] as? String {
                         let isFromCurrentUser = (senderId == self?.currentUserID)
-                        loadedMessages.append((message, isFromCurrentUser, document.documentID))
+                        let messageId = document.documentID
+                        
+                        // Timestamp'i Date'e dönüştür
+                        var timestamp: Date? = nil
+                        if let firestoreTimestamp = data["timestamp"] as? Timestamp {
+                            timestamp = firestoreTimestamp.dateValue()
+                        }
+                        
+                        // Tepki bilgisini al
+                        let reaction = data["reaction"] as? String
+                        
+                        loadedMessages.append((message, isFromCurrentUser, messageId, timestamp, reaction))
                     }
                 }
                 
