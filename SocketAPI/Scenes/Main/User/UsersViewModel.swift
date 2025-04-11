@@ -2,6 +2,8 @@ import Foundation
 import Firebase
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
+import UIKit
 
 // MARK: - UsersViewModel
 class UsersViewModel {
@@ -18,7 +20,11 @@ class UsersViewModel {
     var onError: ((String) -> Void)?
     
     var onInternetStatusChanged: ((Bool, String) -> Void)?
-
+    
+    // MARK: - Cache System
+    static let imageCache = NSCache<NSString, UIImage>()
+    static var imageLoadTimestamps = [String: Date]()
+    static let maxCacheAge: TimeInterval = 3600 // 1 saat cache geçerlilik süresi
     
     // MARK: - Initialization
     init() {
@@ -45,17 +51,17 @@ class UsersViewModel {
     }
     
     private func observeInternetConnection() {
-            NetworkMonitor.shared.connectionStatusChanged = { [weak self] isConnected in
-                let statusText = isConnected ? "" : "İnternet bağlantınız yok!"
-                self?.onInternetStatusChanged?(isConnected, statusText)
-            }
+        NetworkMonitor.shared.connectionStatusChanged = { [weak self] isConnected in
+            let statusText = isConnected ? "" : "İnternet bağlantınız yok!"
+            self?.onInternetStatusChanged?(isConnected, statusText)
         }
-        
-        func checkInternetConnection() {
-            let isConnected = NetworkMonitor.shared.isConnected
-            let statusText = isConnected ? "" : "İnternet bağlantınız yok! Çıkış Yapılıyor."
-            onInternetStatusChanged?(isConnected, statusText)
-        }
+    }
+    
+    func checkInternetConnection() {
+        let isConnected = NetworkMonitor.shared.isConnected
+        let statusText = isConnected ? "" : "İnternet bağlantınız yok! Çıkış Yapılıyor."
+        onInternetStatusChanged?(isConnected, statusText)
+    }
     
     func filterUsers(with searchText: String, inChatMode: Bool) -> [User] {
         let baseList = inChatMode ? chatUsers : users
@@ -170,6 +176,60 @@ class UsersViewModel {
                 completion(chatUsers)
             }
         }
+    }
+    
+    // MARK: - Profile Image Cache Methods
+    
+    // Profil resmi yükleme (Cache kullanarak)
+    func loadProfileImage(userId: String, completion: @escaping (UIImage?) -> Void) {
+        let cacheKey = NSString(string: "profile_\(userId)")
+        
+        // Önce cache'i kontrol et ve taze ise kullan
+        if let cachedImage = UsersViewModel.imageCache.object(forKey: cacheKey),
+           let timestamp = UsersViewModel.imageLoadTimestamps[userId],
+           Date().timeIntervalSince(timestamp) < UsersViewModel.maxCacheAge {
+            print("Cache'den profil resmi yükleniyor: \(userId)")
+            completion(cachedImage)
+            return
+        }
+        
+        // Cache'de yok veya bayat ise Firebase'den yükle
+        print("Firebase'den profil resmi yükleniyor: \(userId)")
+        let storage = Storage.storage()
+        let storageRef = storage.reference()
+        let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
+        
+        profileImageRef.getData(maxSize: 5 * 1024 * 1024) { data, error in
+            if let error = error {
+                print("Profil resmi yükleme hatası: \(error.localizedDescription)")
+                completion(nil)
+                return
+            }
+            
+            guard let imageData = data, let image = UIImage(data: imageData) else {
+                completion(nil)
+                return
+            }
+            
+            // Resmi cache'e kaydet
+            UsersViewModel.imageCache.setObject(image, forKey: cacheKey)
+            UsersViewModel.imageLoadTimestamps[userId] = Date()
+            
+            completion(image)
+        }
+    }
+    
+    // Cache temizleme
+    func clearImageCache() {
+        UsersViewModel.imageCache.removeAllObjects()
+        UsersViewModel.imageLoadTimestamps.removeAll()
+    }
+    
+    // Belirli bir kullanıcının cache'ini geçersiz kılma
+    func invalidateImageCache(forUserId userId: String) {
+        let cacheKey = NSString(string: "profile_\(userId)")
+        UsersViewModel.imageCache.removeObject(forKey: cacheKey)
+        UsersViewModel.imageLoadTimestamps.removeValue(forKey: userId)
     }
     
     // Kullanıcıyı sohbet listesine ekle

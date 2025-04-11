@@ -20,18 +20,18 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     let segmentedControl = UISegmentedControl(items: ["Sohbetler", "Tüm Kullanıcılar"])
     
     private let noInternetLabel: UILabel = {
-            let label = UILabel()
-            label.text = "İnternet bağlantınız yok!"
-            label.textAlignment = .center
-            label.textColor = .white
-            label.backgroundColor = .red
-            label.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-            label.layer.cornerRadius = 8
-            label.layer.masksToBounds = true
-            label.alpha = 0 // Başlangıçta gizli
-            label.translatesAutoresizingMaskIntoConstraints = false
-            return label
-        }()
+        let label = UILabel()
+        label.text = "İnternet bağlantınız yok!"
+        label.textAlignment = .center
+        label.textColor = .white
+        label.backgroundColor = .red
+        label.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        label.alpha = 0 // Başlangıçta gizli
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -369,7 +369,7 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             cell.configure(with: user, subtitle: user.username, time: "")
         }
         
-        // Profil fotoğrafını yükle
+        // Profil fotoğrafını cache kullanarak yükle
         cell.loadProfileImage(for: user.uid)
         
         return cell
@@ -458,14 +458,17 @@ class UserTableViewCell: UITableViewCell {
     private let profileImageView = UIImageView()
     private let nameLabel = UILabel()
     private let subtitleLabel = UILabel()
-    private let timeLabel = UILabel() // Zaman etiketi eklendi
+    private let timeLabel = UILabel() // Zaman etiketi
     
     // Yükleme göstergesi
     private let loadingIndicator = UIActivityIndicatorView(style: .medium)
     
-    // Profil fotoğrafının yüklenip yüklenmediğini takip eden bayrak
+    // Profil fotoğrafının yüklenmesiyle ilgili değişkenler
     private var isLoadingProfileImage = false
     private var currentLoadingUserId: String?
+    
+    // ViewModel referansı
+    private let viewModel = UsersViewModel()
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -505,7 +508,7 @@ class UserTableViewCell: UITableViewCell {
         timeLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(timeLabel)
         
-        // AutoLayout constraints - güncellendi
+        // AutoLayout constraints
         NSLayoutConstraint.activate([
             profileImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             profileImageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
@@ -562,7 +565,7 @@ class UserTableViewCell: UITableViewCell {
         profileImageView.tintColor = .systemBlue
     }
     
-    // Profil fotoğrafını yüklemek için fonksiyon
+    // Profil fotoğrafını cache kullanarak yükle
     func loadProfileImage(for userId: String) {
         // Eğer zaten aynı kullanıcı için yükleme yapılıyorsa tekrar yükleme
         if currentLoadingUserId == userId && isLoadingProfileImage {
@@ -576,40 +579,27 @@ class UserTableViewCell: UITableViewCell {
         // Yükleme göstergesini başlat
         loadingIndicator.startAnimating()
         
-        // Storage referansını oluştur
-        let storage = Storage.storage()
-        let storageRef = storage.reference()
-        let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
-        
-        // Profil fotoğrafını indir
-        profileImageRef.getData(maxSize: 5 * 1024 * 1024) { [weak self] data, error in
+        // Cache kullanarak profil resmini yükle
+        viewModel.loadProfileImage(userId: userId) { [weak self] image in
             DispatchQueue.main.async {
                 // Yükleme göstergesini durdur
                 self?.loadingIndicator.stopAnimating()
                 self?.isLoadingProfileImage = false
                 
                 // Eğer hücre artık farklı bir kullanıcıya atanmışsa işlemi iptal et
-                if self?.currentLoadingUserId != userId {
+                guard let self = self, self.currentLoadingUserId == userId else {
                     return
                 }
                 
-                if let error = error {
-                    print("Profil fotoğrafı yükleme hatası: \(error.localizedDescription)")
-                    // Varsayılan profil ikonu göster
-                    self?.profileImageView.image = UIImage(systemName: "person.circle.fill")
-                    self?.profileImageView.tintColor = .systemBlue
-                    return
-                }
-                
-                if let imageData = data, let image = UIImage(data: imageData) {
-                    self?.profileImageView.image = image
-                    self?.profileImageView.tintColor = .clear
+                if let image = image {
+                    self.profileImageView.image = image
+                    self.profileImageView.tintColor = .clear
                 } else {
-                    self?.profileImageView.image = UIImage(systemName: "person.circle.fill")
-                    self?.profileImageView.tintColor = .systemBlue
+                    self.profileImageView.image = UIImage(systemName: "person.circle.fill")
+                    self.profileImageView.tintColor = .systemBlue
                 }
                 
-                self?.currentLoadingUserId = nil
+                self.currentLoadingUserId = nil
             }
         }
     }
