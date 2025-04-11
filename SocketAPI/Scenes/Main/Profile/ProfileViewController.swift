@@ -363,17 +363,34 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     }
     
     private func loadProfileImage(userId: String) {
+        // Profil resmi yükleme başladığını göster
+        if profileImageView.image == UIImage(systemName: "person.circle.fill") {
+            imageLoadingIndicator.startAnimating()
+        } else {
+            // Eğer zaten bir resim varsa, loading sırasında resmi hafifçe soldur
+            UIView.animate(withDuration: 0.2) {
+                self.profileImageView.alpha = 0.7
+            }
+        }
+        
+        // Cache kullanarak profil resmini yükle
         viewModel.loadProfileImage(userId: userId) { [weak self] image in
             guard let self = self else { return }
             
-            self.imageLoadingIndicator.stopAnimating()
-            
-            if let image = image {
-                self.profileImageView.image = image
-                self.profileImageView.tintColor = .clear
-            } else {
-                self.profileImageView.image = UIImage(systemName: "person.circle.fill")
-                self.profileImageView.tintColor = .systemBlue
+            DispatchQueue.main.async {
+                // Yükleme göstergesini durdur ve resmi normal opaklığa getir
+                self.imageLoadingIndicator.stopAnimating()
+                UIView.animate(withDuration: 0.2) {
+                    self.profileImageView.alpha = 1.0
+                }
+                
+                if let image = image {
+                    self.profileImageView.image = image
+                    self.profileImageView.tintColor = .clear
+                } else {
+                    self.profileImageView.image = UIImage(systemName: "person.circle.fill")
+                    self.profileImageView.tintColor = .systemBlue
+                }
             }
         }
     }
@@ -446,11 +463,13 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         if let editedImage = info[.editedImage] as? UIImage {
             viewModel.selectedProfileImage = editedImage
             profileImageView.image = editedImage
+            profileImageView.tintColor = .clear
             viewModel.hasProfileImageChanged = true
             updateSaveButtonState(isEnabled: true)
         } else if let originalImage = info[.originalImage] as? UIImage {
             viewModel.selectedProfileImage = originalImage
             profileImageView.image = originalImage
+            profileImageView.tintColor = .clear
             viewModel.hasProfileImageChanged = true
             updateSaveButtonState(isEnabled: true)
         }
@@ -481,6 +500,11 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
         viewModel.selectedProfileImage = nil
         viewModel.hasProfileImageChanged = true
         updateSaveButtonState(isEnabled: true)
+        
+        // Profil resmi kaldırıldığında cache'ten de kaldır
+        if let userId = Auth.auth().currentUser?.uid {
+            viewModel.invalidateImageCache(forUserId: userId)
+        }
     }
     
     @objc private func dismissKeyboard() {
@@ -709,6 +733,9 @@ class ProfileViewController: UIViewController, UIPickerViewDelegate, UIPickerVie
     }
     
     private func performLogout() {
+        // Çıkış yaparken cache'i temizle
+        viewModel.clearImageCache()
+        
         if viewModel.logout() {
             redirectToLogin()
         } else {

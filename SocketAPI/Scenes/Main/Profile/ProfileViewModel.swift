@@ -41,6 +41,11 @@ class ProfileViewModel {
     var email: String = ""
     var uid: String = ""
     
+    // MARK: - Cache System
+    static let imageCache = NSCache<NSString, UIImage>()
+    static var imageLoadTimestamps = [String: Date]()
+    static let maxCacheAge: TimeInterval = 3600 // 1 saat cache geçerlilik süresi
+    
     // MARK: - Methods
     
     // Firestore'dan kullanıcı verilerini getirir
@@ -86,8 +91,21 @@ class ProfileViewModel {
         }
     }
     
-    // Profil resmini yükler
+    // Profil resmini cache kullanarak yükler
     func loadProfileImage(userId: String, completion: @escaping (UIImage?) -> Void) {
+        let cacheKey = NSString(string: "profile_\(userId)")
+        
+        // Önce cache'i kontrol et ve taze ise kullan
+        if let cachedImage = ProfileViewModel.imageCache.object(forKey: cacheKey),
+           let timestamp = ProfileViewModel.imageLoadTimestamps[userId],
+           Date().timeIntervalSince(timestamp) < ProfileViewModel.maxCacheAge {
+            print("Cache'den profil resmi yükleniyor: \(userId)")
+            completion(cachedImage)
+            return
+        }
+        
+        // Cache'de yok veya bayat ise Firebase'den yükle
+        print("Firebase'den profil resmi yükleniyor: \(userId)")
         let storage = Storage.storage()
         let storageRef = storage.reference()
         let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
@@ -100,11 +118,28 @@ class ProfileViewModel {
             }
             
             if let imageData = data, let image = UIImage(data: imageData) {
+                // Resmi cache'e kaydet
+                ProfileViewModel.imageCache.setObject(image, forKey: cacheKey)
+                ProfileViewModel.imageLoadTimestamps[userId] = Date()
+                
                 completion(image)
             } else {
                 completion(nil)
             }
         }
+    }
+    
+    // Cache temizleme
+    func clearImageCache() {
+        ProfileViewModel.imageCache.removeAllObjects()
+        ProfileViewModel.imageLoadTimestamps.removeAll()
+    }
+    
+    // Belirli bir kullanıcının cache'ini geçersiz kılma
+    func invalidateImageCache(forUserId userId: String) {
+        let cacheKey = NSString(string: "profile_\(userId)")
+        ProfileViewModel.imageCache.removeObject(forKey: cacheKey)
+        ProfileViewModel.imageLoadTimestamps.removeValue(forKey: userId)
     }
     
     // Kullanıcı adının benzersiz olup olmadığını kontrol eder
@@ -133,6 +168,9 @@ class ProfileViewModel {
         let storageRef = storage.reference()
         let profileImageRef = storageRef.child("profile_images/\(userId).jpg")
         
+        // Cache'i geçersiz kıl, yeni resim kaydedilecek
+        invalidateImageCache(forUserId: userId)
+        
         // Eğer profil fotoğrafı kaldırıldıysa
         if selectedProfileImage == nil {
             profileImageRef.delete { error in
@@ -159,6 +197,11 @@ class ProfileViewModel {
                 completion(false)
                 return
             }
+            
+            // Başarıyla yüklendi, cache'e yeni resmi kaydet
+            let cacheKey = NSString(string: "profile_\(userId)")
+            ProfileViewModel.imageCache.setObject(image, forKey: cacheKey)
+            ProfileViewModel.imageLoadTimestamps[userId] = Date()
             
             // Başarıyla yüklendi
             completion(true)
