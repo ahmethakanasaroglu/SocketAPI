@@ -28,7 +28,7 @@ class LoginViewModel {
                 self.onError?(error.localizedDescription)
             } else {
                 self.onLoginSuccess?()
-                self.redirectToMainTabBar()
+                self.redirectToSplashScreen()
             }
         }
     }
@@ -63,7 +63,7 @@ class LoginViewModel {
         }
     }
    
-    private func redirectToMainTabBar() {
+    private func redirectToSplashScreen() {
         let mainTBC = SplashScreenViewController()
         let navController = UINavigationController(rootViewController: mainTBC)
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
