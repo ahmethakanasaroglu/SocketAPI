@@ -64,7 +64,7 @@ class LoginViewModel {
     }
    
     private func redirectToMainTabBar() {
-        let mainTBC = MainTabBarController()
+        let mainTBC = SplashScreenViewController()
         let navController = UINavigationController(rootViewController: mainTBC)
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
