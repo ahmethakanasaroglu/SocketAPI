@@ -28,7 +28,6 @@ class LoginViewModel {
                 self.onError?(error.localizedDescription)
             } else {
                 self.onLoginSuccess?()
-                self.redirectToSplashScreen()
             }
         }
     }
@@ -63,15 +62,6 @@ class LoginViewModel {
         }
     }
    
-    private func redirectToSplashScreen() {
-        let mainTBC = SplashScreenViewController()
-        let navController = UINavigationController(rootViewController: mainTBC)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-            window.rootViewController = navController
-            window.makeKeyAndVisible()
-        }
-    }
     
     // Genişletilmiş kayıt fonksiyonu
     func register(name: String, email: String, password: String, completion: @escaping (Bool) -> Void) {

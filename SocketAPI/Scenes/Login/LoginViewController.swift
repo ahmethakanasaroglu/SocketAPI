@@ -353,14 +353,18 @@ class LoginViewController: UIViewController {
     func bindViewModel() {
         viewModel.onLoginSuccess = {
             DispatchQueue.main.async {
-                let chatVC = UsersViewController()
-                chatVC.modalPresentationStyle = .fullScreen
-                self.present(chatVC, animated: true, completion: nil)
+                // TEK bir yönlendirme yaklaşımı seçin - ya UsersViewController ya da SplashScreenViewController
+                let splashVC = SplashScreenViewController()
+                splashVC.modalPresentationStyle = .fullScreen
+                self.present(splashVC, animated: true, completion: nil)
             }
         }
         
         viewModel.onError = { errorMessage in
             DispatchQueue.main.async {
+                // Ayrıca UI temizliğini de burada yapın
+                // Aktivite göstergesine referansınız varsa, kaldırın
+                self.loginButton.setTitle("Giriş Yap", for: .normal) // Buton metnini geri yükleyin
                 self.hataMesaji(titleInput: "Hata!", messageInput: errorMessage)
             }
         }
@@ -423,15 +427,9 @@ class LoginViewController: UIViewController {
         // Güncellenen login metodunu çağır
         viewModel.login(emailOrUsername: emailOrUsername, password: password)
         
-        // Hata durumunda animasyonu geri al
-        viewModel.onError = { [weak self] errorMessage in
-            guard let self = self else { return }
-            
-            DispatchQueue.main.async {
-                activityIndicator.removeFromSuperview()
-                self.loginButton.setTitle(originalTitle, for: .normal)
-                self.hataMesaji(titleInput: "Hata!", messageInput: errorMessage)
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            activityIndicator.removeFromSuperview()
+            self.loginButton.setTitle(originalTitle, for: .normal)
         }
     }
     
