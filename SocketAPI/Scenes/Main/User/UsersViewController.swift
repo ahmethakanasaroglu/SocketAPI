@@ -19,30 +19,19 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     let searchBar = UISearchBar()
     let segmentedControl = UISegmentedControl(items: ["Sohbetler", "Tüm Kullanıcılar"])
     
-    private let noInternetLabel: UILabel = {
-        let label = UILabel()
-        label.text = "İnternet bağlantınız yok!"
-        label.textAlignment = .center
-        label.textColor = .white
-        label.backgroundColor = .red
-        label.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        label.layer.cornerRadius = 8
-        label.layer.masksToBounds = true
-        label.alpha = 0 // Başlangıçta gizli
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        viewModel.checkInternetConnection()  // Uygulama açıldığında interneti kontrol et
-
         setupUI()
         setupTableView()
         setupTapGesture() // Klavyeyi kapatmak için dokunma jesti ekle
         setupBindings()
+        
+        // İnternet kontrolünü ekleyelim
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.viewModel.checkInternetConnection()
+        }
         
         // Başlangıçta "Sohbetler" sekmesini seç
         segmentedControl.selectedSegmentIndex = 0
@@ -85,37 +74,11 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             
             DispatchQueue.main.async {
                 if !isConnected {
-                    // İnternet bağlantısı yok
-                    self.noInternetLabel.text = message
-                    self.noInternetLabel.alpha = 1
-                    
-                    // Özel alert göster
+                    // İnternet bağlantısı yok - özel alert göster
                     self.showCustomNoInternetAlert()
-                } else {
-                    // İnternet bağlantısı var
-                    self.noInternetLabel.alpha = 0
                 }
             }
         }
-    }
-    
-    // İnternet bağlantısı olmadığında gösterilecek uyarı
-    private func showNoInternetAlert() {
-        // Önce label'ı göster
-        self.noInternetLabel.text = "İnternet bağlantınız yok!\nUygulama kapatılacaktır."
-        self.noInternetLabel.alpha = 1
-        
-        // Sonra uyarı göster
-        let alert = UIAlertController(title: "İnternet Bağlantısı Yok",
-                                      message: "İnternet bağlantınız yok. Uygulamayı kullanabilmek için internet bağlantısı gereklidir. Uygulama kapatılacaktır.",
-                                      preferredStyle: .alert)
-        
-        alert.addAction(UIAlertAction(title: "Tamam", style: .default) { _ in
-            // Uygulamayı kapat
-            exit(0)
-        })
-        
-        self.present(alert, animated: true)
     }
     
     private func updateFilteredUsers() {
@@ -147,22 +110,12 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         searchBar.autocapitalizationType = .none
         searchBar.autocorrectionType = .no
         
-        // İnternet bağlantısı uyarı etiketi
-        view.addSubview(noInternetLabel)
-        
         // Constraints
         NSLayoutConstraint.activate([
             segmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             segmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             segmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            segmentedControl.heightAnchor.constraint(equalToConstant: 36),
-            
-            // İnternet bağlantısı uyarı etiketi constraints
-            noInternetLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            noInternetLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            noInternetLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
-            noInternetLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
-            noInternetLabel.heightAnchor.constraint(equalToConstant: 100)
+            segmentedControl.heightAnchor.constraint(equalToConstant: 36)
         ])
     }
     
@@ -442,6 +395,21 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             window.makeKeyAndVisible()
         }
     }
+    
+    // MARK: - Custom Alert
+    func showCustomNoInternetAlert() {
+        let customAlert = CustomAlertView(
+            title: "İnternet Bağlantısı Yok",
+            message: "İnternet bağlantınız yok. Uygulamayı kullanabilmek için internet bağlantısı gereklidir. Uygulama kapatılacaktır.",
+            buttonTitle: "Tamam"
+        )
+        
+        customAlert.onDismiss = {
+            exit(0)
+        }
+        
+        customAlert.show(in: self)
+    }
 }
 
 // Kullanıcı modeli
@@ -602,22 +570,5 @@ class UserTableViewCell: UITableViewCell {
                 self.currentLoadingUserId = nil
             }
         }
-    }
-}
-
-// ViewController içinde kullanım örneği
-extension UsersViewController {
-    func showCustomNoInternetAlert() {
-        let customAlert = CustomAlertView(
-            title: "İnternet Bağlantısı Yok",
-            message: "İnternet bağlantınız yok. Uygulamayı kullanabilmek için internet bağlantısı gereklidir. Uygulama kapatılacaktır.",
-            buttonTitle: "Tamam"
-        )
-        
-        customAlert.onDismiss = {
-            exit(0)
-        }
-        
-        customAlert.show(in: self)
     }
 }
