@@ -5,6 +5,23 @@ import FirebaseFirestore
 class LoginViewController: UIViewController {
     let viewModel = LoginViewModel()
     
+    // Activity Indicator ve arka plan görünümü
+    private let activityIndicatorContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        view.layer.cornerRadius = 10
+        view.isHidden = true
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    private let activityIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.color = .white
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+    
     // Arka plan gradient
     let gradientLayer = CAGradientLayer()
     
@@ -250,6 +267,10 @@ class LoginViewController: UIViewController {
         
         view.addSubview(registerStack)
         
+        // Activity Indicator Container'ı ekleyin
+        view.addSubview(activityIndicatorContainer)
+        activityIndicatorContainer.addSubview(activityIndicator)
+        
         NSLayoutConstraint.activate([
             // Logo
             logoImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -296,8 +317,30 @@ class LoginViewController: UIViewController {
             
             // Kayıt ol stack
             registerStack.topAnchor.constraint(equalTo: containerView.bottomAnchor, constant: 20),
-            registerStack.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            registerStack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            // Activity Indicator Container
+            activityIndicatorContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            activityIndicatorContainer.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            activityIndicatorContainer.widthAnchor.constraint(equalToConstant: 80),
+            activityIndicatorContainer.heightAnchor.constraint(equalToConstant: 80),
+            
+            // Activity Indicator
+            activityIndicator.centerXAnchor.constraint(equalTo: activityIndicatorContainer.centerXAnchor),
+            activityIndicator.centerYAnchor.constraint(equalTo: activityIndicatorContainer.centerYAnchor)
         ])
+    }
+    
+    // Activity Indicator'ı göster
+    private func showActivityIndicator() {
+        activityIndicatorContainer.isHidden = false
+        activityIndicator.startAnimating()
+    }
+    
+    // Activity Indicator'ı gizle
+    private func hideActivityIndicator() {
+        activityIndicatorContainer.isHidden = true
+        activityIndicator.stopAnimating()
     }
     
     func setupGestureRecognizers() {
@@ -362,9 +405,8 @@ class LoginViewController: UIViewController {
         
         viewModel.onError = { errorMessage in
             DispatchQueue.main.async {
-                // Ayrıca UI temizliğini de burada yapın
-                // Aktivite göstergesine referansınız varsa, kaldırın
-                self.loginButton.setTitle("Giriş Yap", for: .normal) // Buton metnini geri yükleyin
+                // Activity indicator'ı gizle
+                self.hideActivityIndicator()
                 self.hataMesaji(titleInput: "Hata!", messageInput: errorMessage)
             }
         }
@@ -414,23 +456,11 @@ class LoginViewController: UIViewController {
             return
         }
         
-        // Yükleniyor animasyonu göster
-        let activityIndicator = UIActivityIndicatorView(style: .medium)
-        activityIndicator.color = .white
-        activityIndicator.startAnimating()
-        
-        let originalTitle = loginButton.title(for: .normal)
-        loginButton.setTitle("", for: .normal)
-        loginButton.addSubview(activityIndicator)
-        activityIndicator.center = CGPoint(x: loginButton.bounds.midX, y: loginButton.bounds.midY)
+        // Ekranın ortasında activity indicator göster
+        showActivityIndicator()
         
         // Güncellenen login metodunu çağır
         viewModel.login(emailOrUsername: emailOrUsername, password: password)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            activityIndicator.removeFromSuperview()
-            self.loginButton.setTitle(originalTitle, for: .normal)
-        }
     }
     
     @objc func registerTapped() {
