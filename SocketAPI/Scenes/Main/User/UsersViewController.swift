@@ -19,12 +19,17 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     let searchBar = UISearchBar()
     let segmentedControl = UISegmentedControl(items: ["Sohbetler", "Tüm Kullanıcılar"])
     
+    // Boş durum görünümü için eklenen property'ler
+    private let emptyStateView = UIView()
+    private let emptyStateLabel = UILabel()
+    
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupUI()
         setupTableView()
+        setupEmptyStateView() // Boş durum görünümü kurulumu
         setupTapGesture() // Klavyeyi kapatmak için dokunma jesti ekle
         setupBindings()
         
@@ -65,6 +70,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                 for user in self.viewModel.chatUsers {
                     self.loadLastMessageForUser(userId: user.uid)
                 }
+                
+                // Boş durum kontrolü
+                self.updateEmptyStateVisibility()
             }
         }
         
@@ -88,8 +96,51 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             filteredUsers = segmentedControl.selectedSegmentIndex == 0 ? viewModel.chatUsers : viewModel.users
         }
         
+        // Boş durum kontrolü
+        updateEmptyStateVisibility()
+        
         DispatchQueue.main.async {
             self.tableView.reloadData()
+        }
+    }
+    
+    // Boş durum görünümü kurulum fonksiyonu
+    private func setupEmptyStateView() {
+        // Boş durum view'ını ayarla
+        emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateView.isHidden = true
+        view.addSubview(emptyStateView)
+        
+        // Boş durum mesajı
+        emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateLabel.text = "Hiçbir sohbet bulunmamaktadır"
+        emptyStateLabel.textColor = .secondaryLabel
+        emptyStateLabel.font = UIFont.systemFont(ofSize: 16)
+        emptyStateLabel.textAlignment = .center
+        emptyStateView.addSubview(emptyStateLabel)
+        
+        // Constraints
+        NSLayoutConstraint.activate([
+            emptyStateView.topAnchor.constraint(equalTo: segmentedControl.bottomAnchor, constant: 8),
+            emptyStateView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            emptyStateView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            emptyStateView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            emptyStateLabel.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: emptyStateView.centerYAnchor)
+        ])
+    }
+    
+    // Boş durum kontrolü için fonksiyon
+    private func updateEmptyStateVisibility() {
+        // Sadece Sohbetler sekmesinde ve filtreleme yokken boş durumu göster
+        let shouldShowEmptyState = segmentedControl.selectedSegmentIndex == 0 &&
+                                 filteredUsers.isEmpty &&
+                                 !isSearchActive
+        
+        DispatchQueue.main.async {
+            self.emptyStateView.isHidden = !shouldShowEmptyState
+            self.tableView.isHidden = shouldShowEmptyState
         }
     }
     
@@ -138,6 +189,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             filteredUsers = viewModel.users
             navigationItem.title = "Tüm Kullanıcılar"
         }
+        
+        // Boş durum kontrolü
+        updateEmptyStateVisibility()
         
         tableView.reloadData()
     }
@@ -291,6 +345,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
             filteredUsers = segmentedControl.selectedSegmentIndex == 0 ? viewModel.chatUsers : viewModel.users
         }
         
+        // Boş durum kontrolü eklendi
+        updateEmptyStateVisibility()
+        
         tableView.reloadData()
     }
     
@@ -363,6 +420,9 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
                             }
                             
                             tableView.deleteRows(at: [indexPath], with: .automatic)
+                            
+                            // Son kullanıcı da silindiyse boş durum görünümünü göster
+                            self.updateEmptyStateVisibility()
                         }
                     }
                     completionHandler(success)
