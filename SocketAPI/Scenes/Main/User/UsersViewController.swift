@@ -368,7 +368,7 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         // Son mesaj bilgisini al
         let lastMessageInfo = lastMessages[user.uid]
         
-        // Sohbetler sekmesinde son mesajı göster, Tüm Kullanıcılar sekmesinde email göster
+        // Sohbetler sekmesinde son mesajı göster, Tüm Kullanıcılar sekmesinde username göster
         if segmentedControl.selectedSegmentIndex == 0 {
             let messageText = lastMessageInfo?.message ?? "Henüz mesaj yok"
             let senderPrefix = lastMessageInfo?.sender ?? ""
