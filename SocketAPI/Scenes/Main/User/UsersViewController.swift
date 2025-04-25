@@ -46,8 +46,14 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        // Veri yüklemeyi başlat
-        viewModel.loadInitialData()
+        // Tabloda bir şeyler varsa yeniden yükleme
+        if !viewModel.chatUsers.isEmpty && segmentedControl.selectedSegmentIndex == 0 {
+            updateFilteredUsers()
+            tableView.reloadData()
+        } else {
+            // Veri yüklemeyi başlat
+            viewModel.loadInitialData()
+        }
     }
     
     // MARK: - Setup Methods
@@ -137,6 +143,14 @@ class UsersViewController: UIViewController, UITableViewDelegate, UITableViewDat
         let shouldShowEmptyState = segmentedControl.selectedSegmentIndex == 0 &&
                                  filteredUsers.isEmpty &&
                                  !isSearchActive
+        
+        // Önce veriler yükleniyor mu kontrol et
+        if viewModel.chatUsers.isEmpty && segmentedControl.selectedSegmentIndex == 0 && !isSearchActive {
+            // Yükleme durumunda boş durum görünümünü gösterme
+            emptyStateLabel.text = "Yükleniyor..."
+        } else {
+            emptyStateLabel.text = "Hiçbir sohbet bulunmamaktadır"
+        }
         
         DispatchQueue.main.async {
             self.emptyStateView.isHidden = !shouldShowEmptyState

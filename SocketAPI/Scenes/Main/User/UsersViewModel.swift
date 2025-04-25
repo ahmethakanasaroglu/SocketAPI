@@ -38,14 +38,16 @@ class UsersViewModel {
     
     // MARK: - Public Methods
     func loadInitialData() {
-        fetchAllUsers { [weak self] allUsers in
+        // Önce chat users'ı yükle, böylece boş durum hemen güncellenecek
+        fetchChatUsers { [weak self] chatUsers in
             guard let self = self else { return }
-            self.users = allUsers
-            self.onUsersLoaded?()
+            self.chatUsers = chatUsers
+            self.onChatUsersLoaded?()
             
-            self.fetchChatUsers { chatUsers in
-                self.chatUsers = chatUsers
-                self.onChatUsersLoaded?()
+            // Sonra tüm kullanıcıları arka planda yükle
+            self.fetchAllUsers { allUsers in
+                self.users = allUsers
+                self.onUsersLoaded?()
             }
         }
     }
